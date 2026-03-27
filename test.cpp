@@ -78,7 +78,7 @@ void check_file_history(const std::string& filename, int open[3]) {
 
 void check_allhistory(int open[3]) {
 //   std::vector<int> all_actions = {27, 40, 35, 4573, 43, 30};
-  std::vector<int> all_actions = {27, 40, 31, 410, 40, 30, 40, 40, 35, 4572, 43, 32, 42, 43, 30};
+  std::vector<int> all_actions = {22, 412, 30, 420, 410, 32, 420, 40, 34, 40, 40, 30, 40, 46, 34, 44000};
   long unsigned int i = 0;
   std::vector<int> actions;
   while(i < all_actions.size()){
@@ -95,21 +95,22 @@ void check_allhistory(int open[3]) {
 
 void check_history(int open[3]) {
 //   std::vector<int> all_actions = {27, 40, 35, 4573, 43, 30};
-    std::vector<int> actions = {14, 30, 44100, 40, 31, 417, 43, 34};
+    std::vector<int> actions = {22, 412, 30, 420, 410, 32, 420, 40, 34};
     for(auto x : actions)
         cout << x << " ";
     cout << endl;
     struct bf_position bfp(open, actions_to_string(actions, true), true);
     bfp.print();
     cout << "is win:" << is_win(bfp) << endl;
+    // cout << "is lose:" << is_lose(bfp) << endl;
 }
 
 int main() {
     const std::string filename = "check557.txt";
-    int open[3] = {5,5,7};
+    int open[3] = {4,4,6};
     // check_file_history(filename, open);
-    // check_history(open);
-    check_allhistory(open);
+    check_history(open);
+    // check_allhistory(open);
     // check_actionfile_history(open);
 
     return 0;

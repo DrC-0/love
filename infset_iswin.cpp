@@ -139,15 +139,19 @@ void infset_iswin(int open[3], bool brp1){
     }
     cout << "End make_infset." << endl;
 
-    // vector<string> check_history;
+    vector<string> check_history;
     for(map<string, infset>::iterator it = table_infset.begin(); it != table_infset.end();++it){
         bf_position bfp(open, it->first, true);
         int deck = bfp.count_deck();
         infset_cnt[deck]++;
+        if(deck <= 2) output_actions_history(it->first, true);
         // if(rnd_is_win_state(open, it->first, true)){
         if(rnd_is_win(open, it->first, true)){
         // if(rnd_is_lose(open, it->first, true)){
             win_cnt[deck]++;
+        }
+        if(is_lose(bfp)){
+            check_history.push_back(it->first);
         }
     }
     cout << "infset count and win count by deck size:" << endl;
@@ -160,7 +164,7 @@ void infset_iswin(int open[3], bool brp1){
     // for (const auto& history : check_history) {
     //     cout << get_actions_history(history, true) << endl;
     // }
-    // cout << "check history size: " << check_history.size() << endl;
+    cout << "check history size: " << check_history.size() << endl;
     return;
 }
 
@@ -184,6 +188,7 @@ int main(int argc, char *argv[]){
   }
 
   int open[3] = {4,4,6};
+  // int open[3] = {5,5,7};
 //   int open[3] = {a, b, c};
   cout << "open : " << open[0] << " " << open[1] << " " << open[2] << endl;
 
