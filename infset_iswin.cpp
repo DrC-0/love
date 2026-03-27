@@ -183,7 +183,7 @@ int main(int argc, char *argv[]){
     terminate();
   }
 
-  int open[3] = {5,5,7};
+  int open[3] = {4,4,6};
 //   int open[3] = {a, b, c};
   cout << "open : " << open[0] << " " << open[1] << " " << open[2] << endl;
 
