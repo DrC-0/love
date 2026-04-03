@@ -395,8 +395,6 @@ State State::update_flag_discard(int c) const {
     if(max_num[c-1] <= s.trash[c-1]){
         if(s.open_flag_e == c) s.open_flag_e = 0;
         if(s.sol_flag_e == c) s.sol_flag_e = 0;
-    }
-    if(max_num[c-1] <= s.trash[c-1]){
         if(s.sol_flag_s == c) s.sol_flag_s = 0;
         if(s.open_flag_s == c) s.open_flag_s = 0;
     }

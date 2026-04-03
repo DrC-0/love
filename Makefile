@@ -32,7 +32,7 @@ win: infset_iswin.cpp $(COMMON_SRCS) $(COMMON_HDRS)
 
 # --- その他 ---
 
-test: test.cpp log_util.hpp bf_position.hpp
+test: test.cpp log_util.hpp bf_position.hpp endgame.hpp
 	g++ -std=c++20 -Wall -O2 test.cpp -o $@
 
 end: endgame.cpp bs_set.hpp endgame.hpp

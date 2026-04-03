@@ -28,7 +28,7 @@ extern char wizard_to_char(int to, int trash, int draw);
 extern char twonum_to_char(int card1, int card2);
 
 
-struct bf_position{//14byte
+struct bf_position{
   bool turn;
   bool not7_flag_s;
   bool not7_flag_e;
@@ -217,6 +217,7 @@ bf_position::bf_position(int open[3], string history, bool rnd): turn(false), no
         } else if(num2 + 1 == 4){
           barrier0 = true;
         } else if(num2 + 1 == 5){
+          not7_flag_s = true;
           int c2w = char_to_wizard(action[1]);
           int to = c2w / 100;
           int trashcard = (c2w / 10) % 10;
@@ -234,7 +235,9 @@ bf_position::bf_position(int open[3], string history, bool rnd): turn(false), no
           hand0[0] = (c2t % 10) + 1;
           open_flag_s = (c2t % 10) + 1;
           open_flag_e = (c2t / 10) + 1;
-        } else{
+        } else if(num2 + 1 == 7){
+          lt5_flag_s = true;
+        }else{
         }
       }
       else{//player2のカード使用
@@ -250,11 +253,9 @@ bf_position::bf_position(int open[3], string history, bool rnd): turn(false), no
           int c2t = char_to_twonum(action[1]);
           open_flag_e = (c2t % 10) + 1;
           open_flag_s = (c2t % 10) + 1;
-        }
-        if(num2 + 1 == 4){
+        }else if(num2 + 1 == 4){
           barrier1 = true;
-        }
-        if(num2 + 1 == 5 && !barrier0){
+        }else if(num2 + 1 == 5){
           not7_flag_e = true;
           int c2w = char_to_wizard(action[1]);
           int to = c2w / 100;
@@ -268,14 +269,13 @@ bf_position::bf_position(int open[3], string history, bool rnd): turn(false), no
             hand0[0] = draw + 1;
             reset_flag(true);//自分のフラグリセット
           }
-        }
-        if(num2 + 1 == 6 && !barrier0){
+        }else if(num2 + 1 == 6 && !barrier0){
           int c2t = char_to_twonum(action[1]);
           hand0[0] = (c2t % 10) + 1;
           open_flag_s = (c2t % 10) + 1;
           open_flag_e = (c2t / 10) + 1;
         }
-        if(num2 + 1 == 7){
+        else if(num2 + 1 == 7){
           lt5_flag_e = true;
         }
       }
@@ -404,8 +404,8 @@ int is_terminated_win(const bf_position& bfp){
   }
   if(bfp.count_deck() < 2 && bfp.hand0[1] == 0){
     int max = bfp.hand_e_max();
-    if(max == 0) {cout << "Error: max card is 0" << endl; bfp.print(); exit(1);}
-    else if(max < bfp.hand0[0]) return 1;
+    // if(max == 0) {cout << "Error: max card is 0" << endl; bfp.print(); exit(1);}
+    if(max < bfp.hand0[0]) return 1;
     else return -1;
   }
   if(!bfp.barrier1 && bfp.hand0[1] > 0){
@@ -417,9 +417,6 @@ int is_terminated_win(const bf_position& bfp){
     }
     if(bfp.have0(5) && bfp.open1() == 8){
       return 1;
-    }
-    if(bfp.have0(3) && bfp.hand_e_min() > bfp.other_hand0(3)){
-      return -1;
     }
   }
   return 0;
@@ -454,6 +451,9 @@ bool use_win(const bf_position& bfp, int card){
   } else if(t == -1){
     return false;
   }
+  if(card == 3 && !bfp.barrier0 && bfp.hand_e_min() > bfp.other_hand0(3)){
+    return false;
+  }
   // cout << bfp.count_deck() << "use :" << card << endl;
 
   struct bf_position next_bfp = bfp;
@@ -471,7 +471,7 @@ bool use_win(const bf_position& bfp, int card){
 
   next_bfp = reset_flag_by_use(next_bfp, true, card);
 
-  if(card >= 5) next_bfp.not7_flag_s = true;
+  if(card == 5) next_bfp.not7_flag_s = true;
 
   if(bfp.barrier1 && card != 4 && card != 5 && card != 7){
     return enemy_turn_win(next_bfp);
@@ -481,9 +481,7 @@ bool use_win(const bf_position& bfp, int card){
       if(bfp.hand1(i)){
         struct bf_position next_bfp2 = next_bfp;
         next_bfp2.sol_flag_e = i + 1;
-        if(enemy_turn_win(next_bfp2)){
-          return true;
-        }
+        if(enemy_turn_win(next_bfp2)) return true;
       }
     }
     return false;
@@ -492,9 +490,7 @@ bool use_win(const bf_position& bfp, int card){
       if(bfp.hand1(i)){
         struct bf_position next_bfp2 = next_bfp;
         next_bfp2.open_flag_e = i + 1;
-        if(!enemy_turn_win(next_bfp2)){
-          return false;
-        }
+        if(!enemy_turn_win(next_bfp2)) return false;
       }
     }
     return true;
@@ -505,12 +501,8 @@ bool use_win(const bf_position& bfp, int card){
           struct bf_position next_bfp2 = next_bfp;
           next_bfp2.open_flag_e = i + 1;
           next_bfp2.open_flag_s = i + 1;
-          if(!enemy_turn_win(next_bfp2)){
-            return false;
-          }
-        }else if(bfp.other_hand0(3) < i + 1){
-          return false;
-        }
+          if(!enemy_turn_win(next_bfp2)) return false;
+        }else if(bfp.other_hand0(3) < i + 1) return false;
       }
     }
     return true;
@@ -532,8 +524,6 @@ bool use_win(const bf_position& bfp, int card){
       return true;
     }
     return false;
-    // struct bf_position next_bfp2 = next_bfp;
-    // return ef_wizard_win(next_bfp2, true) || (bfp.barrier1 && enemy_turn_win(next_bfp)) ||(!bfp.barrier1 && ef_wizard_win(next_bfp, false));
   }else if(card == 6){
     next_bfp.open_flag_e = bfp.other_hand0(card);
     for(int i = 0; i < 8; i++){
@@ -541,9 +531,7 @@ bool use_win(const bf_position& bfp, int card){
         struct bf_position next_bfp2 = next_bfp;
         next_bfp2.hand0[0] = i + 1;
         next_bfp2.open_flag_s = i + 1;
-        if(!enemy_turn_win(next_bfp2)){
-          return false;
-        }
+        if(!enemy_turn_win(next_bfp2)) return false;
       }
     }
     return true;
@@ -565,6 +553,7 @@ bool enemy_turn_win(const bf_position& bfp){
   for(int i = 0; i < 7; i++){
     if(bfp.deck_or_hand1(i) > 0){
       // cout << bfp.count_deck() << "enemy:" << i + 1 << endl;
+      //カード効果による即時勝利がないかの確認
       if(i + 1 == 1 && !bfp.barrier0 && bfp.hand0[0] > 1){
         return false;
       }
@@ -574,15 +563,14 @@ bool enemy_turn_win(const bf_position& bfp){
             if(j + 1 == 3 && bfp.deck_or_hand1(2) >= 2 && bfp.hand0[0] < 3){//相手が3を2枚持っている可能性がある場合
               return false;
             }
-            else if(j + 1 > bfp.hand0[0]){//自分の手札より強いカードが存在する場合
-              return false;
-            }
+            //自分の手札より強いカードが存在する場合
+            else if(j + 1 > bfp.hand0[0]) return false;
           }
         }
       }
-      if(i + 1 == 5 && bfp.hand0[0] == 8 && !bfp.barrier0){//相手が魔術師を持っていて自分が姫を持っている場合
-        return false;
-      }
+      //相手が魔術師を持っていて自分が姫を持っている場合
+      if(i + 1 == 5 && bfp.hand0[0] == 8 && !bfp.barrier0) return false;
+
       struct bf_position next_bfp = bfp;
       next_bfp.trash[i] += 1;
 
@@ -590,23 +578,16 @@ bool enemy_turn_win(const bf_position& bfp){
       next_bfp.turn = !bfp.turn;
       next_bfp = reset_flag_by_use(next_bfp, false, i + 1);
 
-      if( i + 1 >= 5) next_bfp.not7_flag_e = true;
+      if( i + 1 == 5) next_bfp.not7_flag_e = true;
       if( i + 1 == 3){
-        if(!bfp.barrier0){//騎士を使って残りのカードが手札以下の強さの場合(!=未満)
-          next_bfp.open_flag_e = bfp.hand0[0];
-        }
-        if(!draw_win(next_bfp)){
-          return false;
-        }
+        //騎士を使って残りのカードが手札以下の強さの場合(!=未満)
+        if(!bfp.barrier0) next_bfp.open_flag_e = bfp.hand0[0];
+        if(!draw_win(next_bfp)) return false;
       } else if( i + 1 == 4){
         next_bfp.barrier1 = true;
-        if(!draw_win(next_bfp)){
-          return false;
-        }
+        if(!draw_win(next_bfp)) return false;
       } else if( i + 1 == 5){
-        if(bfp.open1() == 7){
-          continue;
-        }
+        if(bfp.open1() == 7) continue;
         std::vector<bf_position> preds_toself = ef_wizard_win(next_bfp, true);
         if (!std::all_of(preds_toself.begin(), preds_toself.end(), [](const bf_position& p) {
           return enemy_turn_win(p);
@@ -620,42 +601,26 @@ bool enemy_turn_win(const bf_position& bfp){
         })) {
           return false;
         }
-        // struct bf_position next_bfp2 = next_bfp;
-        // if(!ef_wizard_win(next_bfp2, false) || !(bfp.barrier0 && draw_win(next_bfp)) ||!(!bfp.barrier0 && ef_wizard_win(next_bfp, true))){
-        //   return false;
-        // }
       } else if( i + 1 == 6){
-        if(bfp.open1() == 7){
-          continue;
-        }
+        if(bfp.open1() == 7) continue;
         if(!bfp.barrier0){
           for(int j = 0; j < 8; j++){
             if(next_bfp.hand1(j)){
               struct bf_position next_bfp2 = next_bfp;
               next_bfp2.hand0[0] = j + 1;
               next_bfp2.open_flag_e = bfp.hand0[0];
-              if(!draw_win(next_bfp2)){
-                return false;
-              }
+              if(!draw_win(next_bfp2)) return false;
             }
           }
         } else {
-          if(!draw_win(next_bfp)){
-            return false;
-          }
+          if(!draw_win(next_bfp)) return false;
         }
       } else if( i + 1 == 7){
         int open_card = bfp.open1();
-        if(open_card >= 5 && open_card != 7){
-          continue;
-        }
+        if(open_card >= 5 && open_card != 7) continue;
         next_bfp.lt5_flag_e = true;
-        if(!draw_win(next_bfp)){
-          return false;
-        }
-      } else if(!draw_win(next_bfp)){
-        return false;
-      }
+        if(!draw_win(next_bfp)) return false;
+      } else if(!draw_win(next_bfp)) return false;
     }
   }
   return true;
@@ -936,8 +901,7 @@ int is_terminated_lose(const bf_position& bfp){
   }
   if(bfp.count_deck() < 2 && bfp.hand0[1] == 0){
     int min = bfp.hand_e_min();
-    if(min == 0) {cout << "Error: min card is 0" << endl; exit(1);}
-    else if(min > bfp.hand0[0]) return -1;
+    if(min > bfp.hand0[0]) return -1;
     else return 1;
   }
   if(!bfp.barrier1 && bfp.hand0[1] > 0){
@@ -983,6 +947,9 @@ bf_position swap_player(const bf_position& bfp, const int hand){
 }
 
 bool use_lose(const bf_position& bfp, int card){
+  if(card == 3 && !bfp.barrier0 && bfp.hand_e_min() < bfp.other_hand0(3)){
+    return false;
+  }
   struct bf_position next_bfp = bfp;
   next_bfp.turn = !bfp.turn;
   next_bfp.trash[card-1] += 1;//公開する
@@ -996,77 +963,59 @@ bool use_lose(const bf_position& bfp, int card){
     exit(1);
   }
 
-  if(bfp.open_flag_s > 0 && bfp.open_flag_s == card){
-    next_bfp.open_flag_s = 0;
-  }
-  if(bfp.sol_flag_s != 0 && bfp.sol_flag_s != card){
-    next_bfp.sol_flag_s = 0;
-  }
-  if(bfp.lt5_flag_s && card < 5){
-    next_bfp.lt5_flag_s = false;
-  }
+  next_bfp = reset_flag_by_use(next_bfp, true, card);
 
   if(card >= 5) next_bfp.not7_flag_s = true;
 
+  // cout << "use_lose card: " << card << endl;
   if(bfp.barrier1 && card != 4 && card != 5 && card != 7){
-  cout << "use_lose card: " << card << endl;
     for(int i = 0; i < 8; i++){
       if(next_bfp.hand1(i)){
         struct bf_position next_bfp2 = swap_player(next_bfp, i + 1);
-        next_bfp2.print();
-        if(!draw_win(next_bfp2)){
-          return false;
-        }
+        if(!draw_win(next_bfp2)) return false;
       }
     }
     return true;
   }
   else if(card == 1){
-    for(int i = 1; i < 8; i++){
-      if(bfp.hand1(i)){
-        struct bf_position next_bfp2 = next_bfp;
-        next_bfp2.sol_flag_e = i + 1;
-
-        bool win_flag = true;
-        for(int j = 0; j < 8; j++){
-          if(next_bfp2.hand1(j)){
-            struct bf_position next_bfp3 = swap_player(next_bfp2, j + 1);
-            if(!draw_win(next_bfp3)){
-              win_flag = false;
-              break;
-            }
-          }
-        }
-        if(win_flag){
-          return true;
-        }
-      }
-    }
     return false;
+    // for(int i = 1; i < 8; i++){
+    //   if(bfp.hand1(i)){
+    //     struct bf_position next_bfp2 = next_bfp;
+    //     next_bfp2.sol_flag_e = i + 1;
+
+    //     bool win_flag = true;
+    //     for(int j = 0; j < 8; j++){
+    //       if(next_bfp2.hand1(j)){
+    //         struct bf_position next_bfp3 = swap_player(next_bfp2, j + 1);
+    //         if(!draw_win(next_bfp3)){
+    //           win_flag = false;
+    //           break;
+    //         }
+    //       }
+    //     }
+    //     if(!win_flag) return false;
+    //   }
+    // }
+    // return true;
   }else if(card == 2){
     for(int i = 0; i < 8; i++){
       if(bfp.hand1(i)){
         struct bf_position next_bfp2 = swap_player(next_bfp, i + 1);
         next_bfp2.open_flag_s = i + 1;
-        if(!draw_win(next_bfp2)){
-          return false;
-        }
+        if(!draw_win(next_bfp2)) return false;
       }
     }
     return true;
-  }else if(card == 3){
+  }else if(card == 3){//騎士でないカード==相手の手札候補の最小値
     for(int i = 0; i < 8; i++){
       if(bfp.hand1(i)){
         if(bfp.other_hand0(3) == i + 1){
           struct bf_position next_bfp2 = swap_player(next_bfp, i + 1);
           next_bfp2.open_flag_e = i + 1;
           next_bfp2.open_flag_s = i + 1;
-          if(!draw_win(next_bfp2)){
-            return false;
-          }
-        }else if(bfp.other_hand0(3) > i + 1){
-          return false;
-        }
+          if(!draw_win(next_bfp2)) return false;
+        }else if(bfp.other_hand0(3) > i + 1) return false;
       }
     }
     return true;
@@ -1075,9 +1024,7 @@ bool use_lose(const bf_position& bfp, int card){
     for(int i = 0; i < 8; i++){
       if(next_bfp.hand1(i)){
         struct bf_position next_bfp2 = swap_player(next_bfp, i + 1);
-        if(!draw_win(next_bfp2)){
-          return false;
-        }
+        if(!draw_win(next_bfp2)) return false;
       }
     }
     return true;
@@ -1090,9 +1037,7 @@ bool use_lose(const bf_position& bfp, int card){
       for(int i = 0; i < 8; i++){
         if(next_bfp2.hand1(i)){
           struct bf_position next_bfp3 = swap_player(next_bfp2, i + 1);
-          if(!draw_win(next_bfp3)){
-            return false;
-          }
+          if(!draw_win(next_bfp3)) return false;
         }
       }
       toself_win_flag = true;
@@ -1103,9 +1048,7 @@ bool use_lose(const bf_position& bfp, int card){
       for(int i = 0; i < 8; i++){
         if(next_bfp2.hand1(i)){
           struct bf_position next_bfp3 = swap_player(next_bfp2, i + 1);
-          if(!draw_win(next_bfp3)){
-            return false;
-          }
+          if(!draw_win(next_bfp3)) return false;
         }
       }
       toenemy_win_flag = true;
@@ -1119,9 +1062,7 @@ bool use_lose(const bf_position& bfp, int card){
         next_bfp2.hand0[0] = i + 1;
         next_bfp2.open_flag_s = i + 1;
         struct bf_position next_bfp3 = swap_player(next_bfp2, i + 1);
-        if(!draw_win(next_bfp3)){
-          return false;
-        }
+        if(!draw_win(next_bfp3)) return false;
       }
     }
     return true;
@@ -1130,9 +1071,7 @@ bool use_lose(const bf_position& bfp, int card){
     for(int i = 0; i < 8; i++){
       if(next_bfp.hand1(i)){
         struct bf_position next_bfp2 = swap_player(next_bfp, i + 1);
-        if(!draw_win(next_bfp2)){
-          return false;
-        }
+        if(!draw_win(next_bfp2)) return false;
       }
     }
     return true;

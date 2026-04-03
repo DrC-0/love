@@ -36,7 +36,7 @@ int win_cnt[11];
 
 State get_state_by_bfp(const bf_position& bfp) {
     State s;
-    s.barrier = bfp.barrier0;
+    s.barrier = bfp.barrier1;
     s.not7_flag = bfp.not7_flag_e;
     s.lt5_flag_s = bfp.lt5_flag_s;
     s.lt5_flag_e = bfp.lt5_flag_e;
@@ -60,6 +60,7 @@ State get_state_by_bfp(const bf_position& bfp) {
 bool rnd_is_win_state(int open[3], string history, bool rnd){
   bf_position bfp(open, history, true);
   // bfp.print();
+  if(bfp.hand0[1] == 0) return false;
   State s = get_state_by_bfp(bfp);
   // std::cout << get_hash(s) << std::endl;
   // if(bfp.hand0[0] == 3 && bfp.hand0[1] == 1){
@@ -83,11 +84,11 @@ bool rnd_is_win_state(int open[3], string history, bool rnd){
     // std::cout << "true" << std::endl;
     win_history.insert(history);
     for (auto it_clean = it_ub; it_clean != win_history.end(); ) {
-        if (it_clean->rfind(history, 0) == 0) {
-            it_clean = win_history.erase(it_clean);
-        } else {
-            break;
-        }
+      if (it_clean->rfind(history, 0) == 0) {
+        it_clean = win_history.erase(it_clean);
+      } else {
+        break;
+      }
     }
     return true;
   }
@@ -141,18 +142,20 @@ void infset_iswin(int open[3], bool brp1){
 
     vector<string> check_history;
     for(map<string, infset>::iterator it = table_infset.begin(); it != table_infset.end();++it){
-        bf_position bfp(open, it->first, true);
-        int deck = bfp.count_deck();
-        infset_cnt[deck]++;
-        if(deck <= 2) output_actions_history(it->first, true);
-        // if(rnd_is_win_state(open, it->first, true)){
-        if(rnd_is_win(open, it->first, true)){
-        // if(rnd_is_lose(open, it->first, true)){
-            win_cnt[deck]++;
-        }
-        if(is_lose(bfp)){
-            check_history.push_back(it->first);
-        }
+      bf_position bfp(open, it->first, true);
+      int deck = bfp.count_deck();
+      infset_cnt[deck]++;
+      // if(rnd_is_win_state(open, it->first, true)){
+      // if(rnd_is_win(open, it->first, true)){
+      if(is_lose(bfp)){
+        win_cnt[deck]++;
+        // if(deck >= 6  && bfp.have0(1)){
+        //   output_actions_history(it->first, true);
+        // }
+      }
+      // if(is_lose(bfp)){
+      //   check_history.push_back(it->first);
+      // }
     }
     cout << "infset count and win count by deck size:" << endl;
     for(int i = 0; i < 11; i++) cout << infset_cnt[i] << " ";
@@ -164,7 +167,7 @@ void infset_iswin(int open[3], bool brp1){
     // for (const auto& history : check_history) {
     //     cout << get_actions_history(history, true) << endl;
     // }
-    cout << "check history size: " << check_history.size() << endl;
+    // cout << "check history size: " << check_history.size() << endl;
     return;
 }
 

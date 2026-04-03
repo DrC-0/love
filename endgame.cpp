@@ -87,7 +87,7 @@ void debug_hash(){
 }
 
 void abswin_check(){
-    int hash = 9694;
+    int hash = 62983619;
     State s = decode_hash(hash);
     s.print();
     abs_win(s);
