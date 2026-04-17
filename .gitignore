@@ -2,6 +2,7 @@
 *.bin
 *.out
 *.csv
+*.sh
 cfr
 cfr0
 brorg

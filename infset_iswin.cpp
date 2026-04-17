@@ -28,73 +28,73 @@ unsigned long int end_points = 0;
 static Rnd_Perfect_Hash rph;
 int infset_cnt[11];
 int win_cnt[11];
+int lose_cnt[11];
 
 #include "rnd_make_infset.hpp"
 #include "bf_position.hpp"
-#include "endgame.hpp"
-// #include "bf_positionL.hpp"
+// #include "endgame.hpp"
 
-State get_state_by_bfp(const bf_position& bfp) {
-    State s;
-    s.barrier = bfp.barrier1;
-    s.not7_flag = bfp.not7_flag_e;
-    s.lt5_flag_s = bfp.lt5_flag_s;
-    s.lt5_flag_e = bfp.lt5_flag_e;
-    s.open_flag_s = bfp.open_flag_s;
-    s.open_flag_e = bfp.open_flag_e;
-    s.sol_flag_s = bfp.sol_flag_s;
-    s.sol_flag_e = bfp.sol_flag_e;
-    if(bfp.hand0[0] >= bfp.hand0[1]){
-      s.hand[0] = bfp.hand0[0];
-      s.hand[1] = bfp.hand0[1];
-    }else{
-      s.hand[0] = bfp.hand0[1];
-      s.hand[1] = bfp.hand0[0];
-    }
-    for(int i = 0; i < 8; i++){
-      s.trash[i] = bfp.trash[i];
-    }
-    return s;
-}
+// State get_state_by_bfp(const bf_position& bfp) {
+//     State s;
+//     s.barrier = bfp.barrier1;
+//     s.not7_flag = bfp.not7_flag_e;
+//     s.lt5_flag_s = bfp.lt5_flag_s;
+//     s.lt5_flag_e = bfp.lt5_flag_e;
+//     s.open_flag_s = bfp.open_flag_s;
+//     s.open_flag_e = bfp.open_flag_e;
+//     s.sol_flag_s = bfp.sol_flag_s;
+//     s.sol_flag_e = bfp.sol_flag_e;
+//     if(bfp.hand0[0] >= bfp.hand0[1]){
+//       s.hand[0] = bfp.hand0[0];
+//       s.hand[1] = bfp.hand0[1];
+//     }else{
+//       s.hand[0] = bfp.hand0[1];
+//       s.hand[1] = bfp.hand0[0];
+//     }
+//     for(int i = 0; i < 8; i++){
+//       s.trash[i] = bfp.trash[i];
+//     }
+//     return s;
+// }
 
-bool rnd_is_win_state(int open[3], string history, bool rnd){
-  bf_position bfp(open, history, true);
-  // bfp.print();
-  if(bfp.hand0[1] == 0) return false;
-  State s = get_state_by_bfp(bfp);
-  // std::cout << get_hash(s) << std::endl;
-  // if(bfp.hand0[0] == 3 && bfp.hand0[1] == 1){
-  //   output_actions_history(history, rnd);
-  // }
-  // s.print();
-  bool is_prefix_match = false;
-  std::string parent;
-  auto it_ub = win_history.upper_bound(history);
-  if (it_ub != win_history.begin()) {
-    auto it_prev = std::prev(it_ub);
-    if (history.rfind(*it_prev, 0) == 0) {
-      is_prefix_match = true;
-      parent = *it_prev;
-    }
-  }
-  if (is_prefix_match){
-    // std::cout << "true" << std::endl;
-    return true;
-  } else if(abs_win(s)){
-    // std::cout << "true" << std::endl;
-    win_history.insert(history);
-    for (auto it_clean = it_ub; it_clean != win_history.end(); ) {
-      if (it_clean->rfind(history, 0) == 0) {
-        it_clean = win_history.erase(it_clean);
-      } else {
-        break;
-      }
-    }
-    return true;
-  }
-  // std::cout << "false" << std::endl;
-  return false;
-}
+// bool rnd_is_win_state(int open[3], string history, bool rnd){
+//   bf_position bfp(open, history, true);
+//   // bfp.print();
+//   if(bfp.hand0[1] == 0) return false;
+//   State s = get_state_by_bfp(bfp);
+//   // std::cout << get_hash(s) << std::endl;
+//   // if(bfp.hand0[0] == 3 && bfp.hand0[1] == 1){
+//   //   output_actions_history(history, rnd);
+//   // }
+//   // s.print();
+//   bool is_prefix_match = false;
+//   std::string parent;
+//   auto it_ub = win_history.upper_bound(history);
+//   if (it_ub != win_history.begin()) {
+//     auto it_prev = std::prev(it_ub);
+//     if (history.rfind(*it_prev, 0) == 0) {
+//       is_prefix_match = true;
+//       parent = *it_prev;
+//     }
+//   }
+//   if (is_prefix_match){
+//     // std::cout << "true" << std::endl;
+//     return true;
+//   } else if(abs_win(s)){
+//     // std::cout << "true" << std::endl;
+//     win_history.insert(history);
+//     for (auto it_clean = it_ub; it_clean != win_history.end(); ) {
+//       if (it_clean->rfind(history, 0) == 0) {
+//         it_clean = win_history.erase(it_clean);
+//       } else {
+//         break;
+//       }
+//     }
+//     return true;
+//   }
+//   // std::cout << "false" << std::endl;
+//   return false;
+// }
 
 void infset_iswin(int open[3], bool brp1){
     string subgame = to_string(open[0] * 100 + open[1] * 10 + open[2]);
@@ -139,45 +139,46 @@ void infset_iswin(int open[3], bool brp1){
         }
     }
     cout << "End make_infset." << endl;
-
     vector<string> check_history;
     for(map<string, infset>::iterator it = table_infset.begin(); it != table_infset.end();++it){
       bf_position bfp(open, it->first, true);
       int deck = bfp.count_deck();
       infset_cnt[deck]++;
-      // if(rnd_is_win_state(open, it->first, true)){
-      // if(rnd_is_win(open, it->first, true)){
-      if(is_lose(bfp)){
+      if(rnd_is_win(open, it->first, true)){
         win_cnt[deck]++;
-        // if(deck >= 6  && bfp.have0(1)){
-        //   output_actions_history(it->first, true);
-        // }
       }
-      // if(is_lose(bfp)){
-      //   check_history.push_back(it->first);
-      // }
+      else if(rnd_is_lose(open, it->first, true)){
+        lose_cnt[deck]++;
+        if(!bfp.have0(8) && !is_lose(bfp)) check_history.push_back(it->first);
+      }
     }
+    // cout << "max depth: " << max_depth << endl;
     cout << "infset count and win count by deck size:" << endl;
     for(int i = 0; i < 11; i++) cout << infset_cnt[i] << " ";
     cout << endl;
     for(int i = 0; i < 11; i++) cout << win_cnt[i] << " ";
     cout << endl;
-    cout << open[0] << open[1] << open[2] << "_" << brp1 << ":" <<
+    for(int i = 0; i < 11; i++) cout << lose_cnt[i] << " ";
+    cout << endl;
+    cout << "win: " << open[0] << open[1] << open[2] << "_" << brp1 << ":" <<
      std::accumulate(std::begin(win_cnt), std::end(win_cnt), 0) << endl;
-    // for (const auto& history : check_history) {
-    //     cout << get_actions_history(history, true) << endl;
-    // }
+    cout << "lose: " << open[0] << open[1] << open[2] << "_" << brp1 << ":" <<
+     std::accumulate(std::begin(lose_cnt), std::end(lose_cnt), 0) << endl;
+    for (const auto& history : lose_history) {
+      cout << get_actions_history(history, true) << endl;
+    }
     // cout << "check history size: " << check_history.size() << endl;
     return;
 }
 
 int main(int argc, char *argv[]){
   int p;
-//   int a,b,c;
   p = atoi(argv[1]);
-//   a = atoi(argv[2]);
-//   b = atoi(argv[3]);
-//   c = atoi(argv[4]);
+
+  // int a,b,c;
+  // a = atoi(argv[2]);
+  // b = atoi(argv[3]);
+  // c = atoi(argv[4]);
 
   bool brp1;
   if(p == 1){
@@ -192,7 +193,7 @@ int main(int argc, char *argv[]){
 
   int open[3] = {4,4,6};
   // int open[3] = {5,5,7};
-//   int open[3] = {a, b, c};
+  // int open[3] = {a, b, c};
   cout << "open : " << open[0] << " " << open[1] << " " << open[2] << endl;
 
   infset_iswin(open, brp1);
