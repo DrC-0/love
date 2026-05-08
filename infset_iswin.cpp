@@ -147,10 +147,10 @@ void infset_iswin(int open[3], bool brp1){
       if(rnd_is_win(open, it->first, true)){
         win_cnt[deck]++;
       }
-      else if(rnd_is_lose(open, it->first, true)){
-        lose_cnt[deck]++;
-        if(!bfp.have0(8) && !is_lose(bfp)) check_history.push_back(it->first);
-      }
+      // else if(rnd_is_lose(open, it->first, true)){
+      //   lose_cnt[deck]++;
+      //   if(!bfp.have0(8) && is_lose(bfp).first > 0) check_history.push_back(it->first);
+      // }
     }
     // cout << "max depth: " << max_depth << endl;
     cout << "infset count and win count by deck size:" << endl;
@@ -158,16 +158,21 @@ void infset_iswin(int open[3], bool brp1){
     cout << endl;
     for(int i = 0; i < 11; i++) cout << win_cnt[i] << " ";
     cout << endl;
-    for(int i = 0; i < 11; i++) cout << lose_cnt[i] << " ";
+    cout << "win move:" << endl;
+    for(int i = 0; i < 11; i++) cout << win_move[i] << " ";
     cout << endl;
+    // for(int i = 0; i < 11; i++) cout << lose_cnt[i] << " ";
+    // cout << endl;
     cout << "win: " << open[0] << open[1] << open[2] << "_" << brp1 << ":" <<
      std::accumulate(std::begin(win_cnt), std::end(win_cnt), 0) << endl;
     cout << "lose: " << open[0] << open[1] << open[2] << "_" << brp1 << ":" <<
      std::accumulate(std::begin(lose_cnt), std::end(lose_cnt), 0) << endl;
-    for (const auto& history : lose_history) {
-      cout << get_actions_history(history, true) << endl;
-    }
+    // for (const auto& history : check_history) {
+    //   cout << get_actions_history(history, true) << endl;
+    // }
     // cout << "check history size: " << check_history.size() << endl;
+    cout << "max history: " << get_actions_history(max_history, true) << endl;
+    cout << "max history value: " << hist_max << endl;
     return;
 }
 
@@ -175,10 +180,10 @@ int main(int argc, char *argv[]){
   int p;
   p = atoi(argv[1]);
 
-  // int a,b,c;
-  // a = atoi(argv[2]);
-  // b = atoi(argv[3]);
-  // c = atoi(argv[4]);
+  int a,b,c;
+  a = atoi(argv[2]);
+  b = atoi(argv[3]);
+  c = atoi(argv[4]);
 
   bool brp1;
   if(p == 1){
@@ -191,9 +196,9 @@ int main(int argc, char *argv[]){
     terminate();
   }
 
-  int open[3] = {4,4,6};
+  // int open[3] = {4,4,6};
   // int open[3] = {5,5,7};
-  // int open[3] = {a, b, c};
+  int open[3] = {a, b, c};
   cout << "open : " << open[0] << " " << open[1] << " " << open[2] << endl;
 
   infset_iswin(open, brp1);

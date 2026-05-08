@@ -5,7 +5,7 @@
 
 #include "bf_position.hpp"
 #include "log_util.hpp"
-#include "endgame.hpp"
+// #include "endgame.hpp"
 
 extern int char_to_action(char c);
 extern int char_to_wizard(char c);
@@ -13,28 +13,28 @@ extern int char_to_twonum(char c);
 
 using namespace std;
 
-State get_state_by_bfp(const bf_position& bfp) {
-    State s;
-    s.barrier = bfp.barrier1;
-    s.not7_flag = bfp.not7_flag_e;
-    s.lt5_flag_s = bfp.lt5_flag_s;
-    s.lt5_flag_e = bfp.lt5_flag_e;
-    s.open_flag_s = bfp.open_flag_s;
-    s.open_flag_e = bfp.open_flag_e;
-    s.sol_flag_s = bfp.sol_flag_s;
-    s.sol_flag_e = bfp.sol_flag_e;
-    if(bfp.hand0[0] >= bfp.hand0[1]){
-      s.hand[0] = bfp.hand0[0];
-      s.hand[1] = bfp.hand0[1];
-    }else{
-      s.hand[0] = bfp.hand0[1];
-      s.hand[1] = bfp.hand0[0];
-    }
-    for(int i = 0; i < 8; i++){
-      s.trash[i] = bfp.trash[i];
-    }
-    return s;
-}
+// State get_state_by_bfp(const bf_position& bfp) {
+//     State s;
+//     s.barrier = bfp.barrier1;
+//     s.not7_flag = bfp.not7_flag_e;
+//     s.lt5_flag_s = bfp.lt5_flag_s;
+//     s.lt5_flag_e = bfp.lt5_flag_e;
+//     s.open_flag_s = bfp.open_flag_s;
+//     s.open_flag_e = bfp.open_flag_e;
+//     s.sol_flag_s = bfp.sol_flag_s;
+//     s.sol_flag_e = bfp.sol_flag_e;
+//     if(bfp.hand0[0] >= bfp.hand0[1]){
+//       s.hand[0] = bfp.hand0[0];
+//       s.hand[1] = bfp.hand0[1];
+//     }else{
+//       s.hand[0] = bfp.hand0[1];
+//       s.hand[1] = bfp.hand0[0];
+//     }
+//     for(int i = 0; i < 8; i++){
+//       s.trash[i] = bfp.trash[i];
+//     }
+//     return s;
+// }
 
 
 void check_actionfile_history(int open[3]) {
@@ -61,7 +61,7 @@ void check_actionfile_history(int open[3]) {
 
         if (!actions.empty()) {
             struct bf_position bfp(open, actions_to_string(actions, true), true);
-            if(is_lose(bfp)){
+            if(is_lose(bfp).second){
                 for(auto x : actions)
                     cout << x << " ";
                 cout << endl;
@@ -117,52 +117,54 @@ void check_allhistory(int open[3]) {
     struct bf_position bfp(open, actions_to_string(actions, true), true);
     bfp.print();
     // cout << "is win:" << is_win(bfp) << endl << endl;
-    cout << "is lose:" << is_lose(bfp) << endl << endl;
+    cout << "is lose:" << is_lose(bfp).second << endl << endl;
     i++;
   }
 }
 
-void compare_history(int open[3]) {
-//   std::vector<int> all_actions = {27, 40, 35, 4573, 43, 30};
-    std::vector<int> actions = {27, 44000, 31, 416, 46, 31, 410, 40, 30, 40, 40, 34, 44000};
-    for(auto x : actions)
-        cout << x << " ";
-    cout << endl;
-    struct bf_position bfp(open, actions_to_string(actions, true), true);
-    bfp.print();
-    cout << "is win:" << is_win(bfp) << endl;
-    State s = get_state_by_bfp(bfp);
-    cout << get_hash(s) << endl;
-    s.print();
-    State s2 = decode_hash(get_hash(s));
-    cout << get_hash(s2) << endl;
-    s2.print();
-    cout << encode_hand_idx(s.hand[0], s.hand[1]) << endl;
-    cout << "abs win:" << abs_win(s2) << endl;
-    // cout << "is lose:" << is_lose(bfp) << endl;
-}
+// void compare_history(int open[3]) {
+// //   std::vector<int> all_actions = {27, 40, 35, 4573, 43, 30};
+//     std::vector<int> actions = {27, 44000, 31, 416, 46, 31, 410, 40, 30, 40, 40, 34, 44000};
+//     for(auto x : actions)
+//         cout << x << " ";
+//     cout << endl;
+//     struct bf_position bfp(open, actions_to_string(actions, true), true);
+//     bfp.print();
+//     cout << "is win:" << is_win(bfp).second << endl;
+//     State s = get_state_by_bfp(bfp);
+//     cout << get_hash(s) << endl;
+//     s.print();
+//     State s2 = decode_hash(get_hash(s));
+//     cout << get_hash(s2) << endl;
+//     s2.print();
+//     cout << encode_hand_idx(s.hand[0], s.hand[1]) << endl;
+//     cout << "abs win:" << abs_win(s2) << endl;
+//     // cout << "is lose:" << is_lose(bfp) << endl;
+// }
 
 
 void check_history(int open[3]) {
-//   std::vector<int> all_actions = {27, 40, 35, 4573, 43, 30};
-    std::vector<int> actions = {26, 44040, 31, 411, 416, 30};
+//   std::vector<int> all_actions = {25, 43, 32, 45, 412, 30, 420, 420, 33, 40, 40, 31, 43, 40, 37};
+    std::vector<int> actions = {21, 421, 32, 421, 411, 35, 417, 43, 30};
     for(auto x : actions)
         cout << x << " ";
     cout << endl;
     struct bf_position bfp(open, actions_to_string(actions, true), true);
     bfp.print();
-    // cout << "is win:" << is_win(bfp) << endl;
-    cout << "is lose:" << is_lose(bfp) << endl;
+    auto res = is_win(bfp);
+    cout << "is win:" << res.first << endl;
+    cout << "win moves:" << res.second << endl;
+    // cout << "is lose:" << is_lose(bfp) << endl;
 }
 
 int main() {
     // const std::string filename = "check557.txt";
-    int open[3] = {4,4,6};
-    // int open[3] = {5,5,7};
+    // int open[3] = {4,4,6};
+    int open[3] = {5,5,7};
     // check_file_history(filename, open);
     // check_actionfile_history(open);
-    check_allhistory(open);
-    // check_history(open);
+    // check_allhistory(open);
+    check_history(open);
     // compare_history(open);
     return 0;
 }

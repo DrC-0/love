@@ -13,7 +13,7 @@ const int max_num[8] = {5, 2, 2, 2, 2, 1, 1, 1};
 
 #include "rnd_action.hpp"
 #include "org_action.hpp"
-#include "endgame.hpp"
+// #include "endgame.hpp"
 
 using namespace std;
 
@@ -29,10 +29,13 @@ extern char action_to_char(int action, int card);
 extern char wizard_to_char(int to, int trash, int draw);
 extern char twonum_to_char(int card1, int card2);
 
-int depth, start_deck, max_depth = 0;
+std::string max_history = "";
+int hist_max = 0;
+bool commentablebfp = false;
+int win_move[11];
 
 struct bf_position{
-  bool turn;
+  bool is_my_turn;
   bool not7_flag_s;
   bool not7_flag_e;
   bool barrier0;
@@ -46,13 +49,13 @@ struct bf_position{
   int hand0[2];
   int trash[8];
   bf_position()
-    : turn(false), not7_flag_s(false), not7_flag_e(false), barrier0(false), barrier1(false),
+    : is_my_turn(false), not7_flag_s(false), not7_flag_e(false), barrier0(false), barrier1(false),
       lt5_flag_s(false), lt5_flag_e(false), open_flag_s(0), open_flag_e(0),
       sol_flag_s(0), sol_flag_e(0), hand0 {0, 0}, trash {0, 0, 0, 0, 0, 0, 0, 0} {}
-  bf_position(bool turn, bool not7_flag_s, bool not7_flag_e, bool barrier0, bool barrier1,
+  bf_position(bool is_my_turn, bool not7_flag_s, bool not7_flag_e, bool barrier0, bool barrier1,
               bool lt5_flag_s, bool lt5_flag_e, int open_flag_s, int open_flag_e,
               int sol_flag_s, int sol_flag_e, const int hand0[2], const int trash[8])
-    : turn(turn),
+    : is_my_turn(is_my_turn),
       not7_flag_s(not7_flag_s),
       not7_flag_e(not7_flag_e),
       barrier0(barrier0),
@@ -78,16 +81,17 @@ struct bf_position{
   int hand_e_min() const;
   int hand_s_max() const;
   int hand_s_min() const;
+  int deck_or_hand_e_min() const;
   void reset_flag(bool is_self);
   void print() const;
 } ;
 
 bf_position reset_flag_by_use(const bf_position& bfp, bool is_self, int card);
-bool is_win(const bf_position& bfp);
-int is_terminated_win(const bf_position& bfp);
-bool use_win(const bf_position& bfp, int card, bool win);
-bool draw_win(const bf_position& bfp, bool win);
-bool enemy_turn_win(const bf_position& bfp, bool win);
+std::pair<bool, int> is_win(const bf_position& bfp);
+std::pair<int, int> is_terminated_win(const bf_position& bfp);
+std::pair<bool, int> use_win(const bf_position& bfp, int card);
+std::pair<bool, int> draw_win(const bf_position& bfp);
+std::pair<bool, int> enemy_turn_win(const bf_position& bfp);
 std::vector<bf_position> ef_wizard_win(const bf_position& bfp, bool to_0p);
 bf_position draw(const bf_position& bfp, int draw_card);
 bool rnd_is_win(int open[3], string history, bool rnd);
@@ -96,13 +100,13 @@ std::string actions_to_string(const std::vector<int>& actions, bool rnd);
 std::string get_actions_history(std::string s, bool rnd);
 void output_actions_history(std::string s, bool rnd);
 int is_terminated_lose(const bf_position& bfp);
-int is_lose(const bf_position& bfp);
-bool use_lose(const bf_position& bfp, int card);
+std::pair<int, int> is_lose(const bf_position& bfp);
+std::pair<bool, int> use_lose(const bf_position& bfp, int card);
 bool rnd_is_lose(int open[3], string history, bool rnd);
 
-// int trash_and_hand_s(const int i, const int hand[2], const int trash[8]){
-//   return trash[i] + (hand[0]  == i + 1 ? 1 : 0) + (hand[1]  == i + 1 ? 1 : 0);
-// }
+int trash_and_hand_s(const int i, const int hand[2], const int trash[8]){
+  return trash[i] + (hand[0]  == i + 1 ? 1 : 0) + (hand[1]  == i + 1 ? 1 : 0);
+}
 
 int deck_or_hand_e(const int i, const int hand[2], const int trash[8]){
   return max_num[i] - trash_and_hand_s(i, hand, trash);
@@ -145,15 +149,15 @@ bool deck(const int i, const int hand[2], const int trash[8], const int open_fla
   return deck_or_hand_e(i, hand, trash) > (i + 1 == open_card ? 1 : 0);
 }
 
-// bool in(const int hand[2], const int target) {
-//   return hand[0] == target || hand[1] == target;
-// }
+bool in(const int hand[2], const int target) {
+  return hand[0] == target || hand[1] == target;
+}
 
-// int other(const int hand[2], const int target) {
-//   if (hand[0] == target) return hand[1];
-//   else if (hand[1] == target) return hand[0];
-//   return 0;
-// }
+int other(const int hand[2], const int target) {
+  if (hand[0] == target) return hand[1];
+  else if (hand[1] == target) return hand[0];
+  return 0;
+}
 
 int count_deck(const int i, const int hand[2], const int trash[8]){
   int count = 0;
@@ -163,7 +167,7 @@ int count_deck(const int i, const int hand[2], const int trash[8]){
   return count -1;
 }
 
-bf_position::bf_position(int open[3], string history, bool rnd): turn(false), not7_flag_s(false), not7_flag_e(false),
+bf_position::bf_position(int open[3], string history, bool rnd): is_my_turn(false), not7_flag_s(false), not7_flag_e(false),
       barrier0(false), barrier1(false), lt5_flag_s(false), lt5_flag_e(false), open_flag_s(0),
       open_flag_e(0), sol_flag_s(0), sol_flag_e(0), hand0 {0, 0}, trash {0, 0, 0, 0, 0, 0, 0, 0} {
   for(int i = 0; i < 3; i++){
@@ -184,12 +188,12 @@ bf_position::bf_position(int open[3], string history, bool rnd): turn(false), no
 
     if(num1 == 1){
       hand0[0] = num2 + 1;
-      turn = false;
+      is_my_turn = true;
       is_second_player = false;
     }
     else if(num1 == 2){
       hand0[0] = num2 + 1;
-      turn = true;
+      is_my_turn = false;
       is_second_player = true;
     }
     else if(num1 == 3){
@@ -197,7 +201,7 @@ bf_position::bf_position(int open[3], string history, bool rnd): turn(false), no
       barrier0 = false;
     }
     else if(num1 == 4){
-      if(!turn){//player1のカード使用
+      if(is_my_turn){//player1のカード使用
         trash[num2] += 1;
 
         if(hand0[0] == num2 + 1){//手札を減らす
@@ -286,7 +290,7 @@ bf_position::bf_position(int open[3], string history, bool rnd): turn(false), no
           lt5_flag_e = true;
         }
       }
-      turn = !turn;
+      is_my_turn = !is_my_turn;
     }
   }
 }
@@ -372,6 +376,18 @@ int bf_position::hand_s_min() const{
   else return hand0[1];
 }
 
+int bf_position::deck_or_hand_e_min() const{
+  int min_card = 0;
+  for (int i = 0; i < 8; i++) {
+    if (deck_or_hand1(i) > 0) {
+      if(min_card == 0 || i + 1 < min_card) {
+        min_card = i + 1;
+      }
+    }
+  }
+  return min_card;
+}
+
 void bf_position::reset_flag(bool is_self) {
   if(is_self){
     not7_flag_s = false;
@@ -415,69 +431,85 @@ bf_position reset_flag_by_use(const bf_position& bfp, bool is_self, int card){
   return next_bfp;
 }
 
-int is_terminated_win(const bf_position& bfp){
+std::pair<int, int> is_terminated_win(const bf_position& bfp){
   if(bfp.have0(7) && bfp.hand0[0] + bfp.hand0[1] >= 12){
-    return -1;
+    return {-1, 0};
   }
   if(bfp.count_deck() < 2 && bfp.hand0[1] == 0){
     int max = bfp.hand_e_max();
     // if(max == 0) {cout << "Error: max card is 0" << endl; bfp.print(); exit(1);}
-    if(max < bfp.hand0[0]) return 1;
-    else return -1;
+    if(max < bfp.hand0[0]) return {1, 0};
+    else return {-1, 1};
   }
   if(!bfp.barrier1 && bfp.hand0[1] > 0){
     if(bfp.have0(1) && bfp.open1() > 1){
-      return 1;
+      return {1, 1};
     }
     if(bfp.have0(3) && bfp.hand_e_max() < bfp.other_hand0(3)){
-      return 1;
+      return {1, 1};
     }
     if(bfp.have0(5) && bfp.open1() == 8){
-      return 1;
+      return {1, 1};
     }
   }
-  return 0;
+  if(bfp.open_flag_e == 7 && bfp.deck_or_hand_e_min() >= 5 && !bfp.is_my_turn){
+    return {1, 0};
+  }
+  return {0, 0};
 }
 
-bool is_win(const bf_position& bfp){
-  int t = is_terminated_win(bfp);
-  bool res;
-  if(t == 1){
-    return true;
-  } else if(t == -1){
-    return false;
-  } else if(bfp.turn == 0){
+std::pair<bool, int> is_win(const bf_position& bfp) {
+  auto t = is_terminated_win(bfp);
+  if(t.first != 0){
+    return {t.first == 1, t.second};
+  }
+
+  std::pair<bool, int> res;
+
+  if(bfp.is_my_turn){
+    // 手札が1枚の場合（ドローから開始）
     if(bfp.hand0[1] == 0){
-      res =  draw_win(bfp, true);
-    }else{
+      res = draw_win(bfp);
+    }
+    else {
+      // 手札が2枚あり、両方同じカードの場合（片方だけ評価して無駄を省く）
       if(bfp.hand0[0] == bfp.hand0[1]){
-        res = use_win(bfp, bfp.hand0[0], true);
-      } else {
-        bf_position next_bfp = bfp;
-        res = use_win(next_bfp, next_bfp.hand0[0], true) || use_win(bfp, bfp.hand0[1], true);
+        res = use_win(bfp, bfp.hand0[0]);
+      }
+      // 手札が2枚あり、違うカードの場合（ORノードの評価）
+      else {
+        auto res0 = use_win(bfp, bfp.hand0[0]);
+        auto res1 = use_win(bfp, bfp.hand0[1]);
+
+        res.first = res0.first || res1.first;
+        res.second = 1e9;
+        if(res0.first) res.second = std::min(res.second, res0.second);
+        if(res1.first) res.second = std::min(res.second, res1.second);
       }
     }
-  } else {
-    res =  enemy_turn_win(bfp, true);
   }
-  if(res && depth > max_depth) max_depth = depth;
+  // 相手ターンの場合
+  else {
+    res = enemy_turn_win(bfp);
+  }
+
   return res;
 }
 
-bool use_win(const bf_position& bfp, int card, bool win){
-  int t = is_terminated_win(bfp);
-  if(t == 1){
-    return true;
-  } else if(t == -1){
-    return false;
+std::pair<bool, int> use_win(const bf_position& bfp, int card){
+  auto t = is_terminated_win(bfp);
+  if(t.first != 0){
+    return {t.first == 1, t.second};
   }
+
   if(card == 3 && !bfp.barrier0 && bfp.hand_e_min() > bfp.other_hand0(3)){
-    return false;
+    return {false, 1};
   }
-  // cout << bfp.count_deck() << "use :" << card << endl;
+  if(card == 8) return {false, 1};
+  if(commentablebfp) cout << bfp.count_deck() << "use :" << card << endl;
 
   struct bf_position next_bfp = bfp;
-  next_bfp.turn = !bfp.turn;
+  next_bfp.is_my_turn = !bfp.is_my_turn;
   next_bfp.trash[card-1] += 1;//公開する
   //手札を減らす
   if(bfp.hand0[0] == card){
@@ -494,178 +526,302 @@ bool use_win(const bf_position& bfp, int card, bool win){
   if(card == 5) next_bfp.not7_flag_s = true;
 
   if(bfp.barrier1 && card != 4 && card != 5 && card != 7){
-    return enemy_turn_win(next_bfp, win);
+    auto res = enemy_turn_win(next_bfp);
+    return {res.first, res.second + 1};
   }
   else if(card == 1){
+    bool has_true = false;
+    int min_t = 1e9;
     for(int i = 1; i < 8; i++){
       if(bfp.hand1(i)){
         struct bf_position next_bfp2 = next_bfp;
         next_bfp2.sol_flag_e = i + 1;
-        if(enemy_turn_win(next_bfp2, win)) return true;
+        auto res = enemy_turn_win(next_bfp2);
+        if(res.first){
+          has_true = true;
+          min_t = std::min(min_t, res.second);
+        }
       }
     }
-    return false;
+    //相手の手札候補がないはずないため省略
+    return {has_true, has_true ? min_t + 1 : 0};
   }else if(card == 2){
+    bool all_true = true;
+    int max_f = -1;
+
     for(int i = 0; i < 8; i++){
+      if(all_true )
       if(bfp.hand1(i)){
         struct bf_position next_bfp2 = next_bfp;
         next_bfp2.open_flag_e = i + 1;
-        if(!enemy_turn_win(next_bfp2, win)) return false;
+        auto res = enemy_turn_win(next_bfp2);
+        if(res.first){
+          max_f = std::max(max_f, res.second);
+        } else {
+          all_true = false;
+        }
       }
     }
-    return true;
+    if (max_f == -1) return {false, 0};
+    return {all_true, all_true ? max_f + 1 : 0};
   }else if(card == 3){
-    for(int i = 0; i < 8; i++){
-      if(bfp.hand1(i)){
-        if(bfp.other_hand0(3) == i + 1){
-          struct bf_position next_bfp2 = next_bfp;
-          next_bfp2.open_flag_e = i + 1;
-          next_bfp2.open_flag_s = i + 1;
-          if(!enemy_turn_win(next_bfp2, win)) return false;
-        }else if(bfp.other_hand0(3) < i + 1) return false;
-      }
+    int other = bfp.other_hand0(3);
+    if(bfp.hand1(other-1)){
+      struct bf_position next_bfp2 = next_bfp;
+      next_bfp2.open_flag_e = other;
+      next_bfp2.open_flag_s = other;
+      auto res = enemy_turn_win(next_bfp2);
+      return {res.first, res.first ? res.second + 1 : 0};
     }
-    return true;
+    return {false, 0};
   }else if(card == 4){
     next_bfp.barrier0 = true;
-    return enemy_turn_win(next_bfp, win);
+    auto res = enemy_turn_win(next_bfp);
+    return {res.first, res.second + 1};
   }else if(card == 5){
     std::vector<bf_position> preds_toself = ef_wizard_win(next_bfp, true);
-    if (preds_toself.empty()) return false;
-    if (std::all_of(preds_toself.begin(), preds_toself.end(), [win](const bf_position& p) {
-      return enemy_turn_win(p, win);
-    })) {
-      return true;
-    }
+    if (preds_toself.empty()) return {false, 0};
+
+    // 魔術師専用の評価ラムダ
+    auto eval_preds = [&](const std::vector<bf_position>& preds) -> std::pair<bool, int> {
+      if (preds.empty()) return {false, 0};
+      int local_max_f = -1;
+      bool local_all_true = true;
+      for (const auto& p : preds) {
+        auto res = enemy_turn_win(p);
+        if (res.first) local_max_f = std::max(local_max_f, res.second);
+        else local_all_true = false;
+      }
+      return {local_all_true, local_all_true ? local_max_f + 1 : 0};
+    };
+
+    auto res_self = eval_preds(preds_toself);
     std::vector<bf_position> preds_toenemy = ef_wizard_win(next_bfp, false);
-    if (std::all_of(preds_toenemy.begin(), preds_toenemy.end(), [win](const bf_position& p) {
-      return enemy_turn_win(p, win);
-    })) {
-      return true;
-    }
-    return false;
+    auto res_enemy = eval_preds(preds_toenemy);
+
+    bool has_true = res_self.first || res_enemy.first;
+
+    int global_min_t = 1e9;
+    if (res_self.first) global_min_t = std::min(global_min_t, res_self.second);
+    if (res_enemy.first) global_min_t = std::min(global_min_t, res_enemy.second);
+
+    return {has_true, has_true ? global_min_t + 1 : 0};
   }else if(card == 6){
     next_bfp.open_flag_e = bfp.other_hand0(card);
+    bool all_true = true;
+    int max_f = -1;
+
     for(int i = 0; i < 8; i++){
       if(bfp.hand1(i)){
         struct bf_position next_bfp2 = next_bfp;
         next_bfp2.hand0[0] = i + 1;
         next_bfp2.open_flag_s = i + 1;
-        if(!enemy_turn_win(next_bfp2, win)) return false;
+        auto res = enemy_turn_win(next_bfp2);
+        if(res.first){
+          max_f = std::max(max_f, res.second);
+        } else {
+          all_true = false;
+        }
       }
     }
-    return true;
+    if (max_f == -1) return {false, 0};
+    return {all_true, all_true ? max_f + 1 : 0};
   }else if(card == 7){
     next_bfp.lt5_flag_s = true;
-    return enemy_turn_win(next_bfp, win);
-  }else{
-    return false;
-  }
+    auto res = enemy_turn_win(next_bfp);
+    return {res.first, res.second + 1};
+  }else return {false, 0};
 }
 
-bool enemy_turn_win(const bf_position& bfp, bool win){
-  int t = is_terminated_win(bfp);
-  if(t == 1){
-    return true;
-  } else if(t == -1){
-    return false;
+std::pair<bool, int> enemy_turn_win(const bf_position& bfp) {
+  auto t = is_terminated_win(bfp);
+  if(t.first != 0){
+    return {t.first == 1, t.second};
   }
+
+  bool all_true = true;
+  int max_f = -1;
+
   for(int i = 0; i < 7; i++){
+    if(!all_true) break;
     if(bfp.deck_or_hand1(i) > 0){
-      // cout << bfp.count_deck() << "enemy:" << i + 1 << endl;
-      //カード効果による即時勝利がないかの確認
+      if(commentablebfp) cout << bfp.count_deck() << "enemy :" << i + 1 << endl;
+      // 1. カード効果による即時敗北（深さ0の敗北として扱う）
       if(i + 1 == 1 && !bfp.barrier0 && bfp.hand0[0] > 1){
-        return false;
+        all_true = false;
+        max_f = std::max(max_f, 1);
+        continue;
       }
+
       if(i + 1 == 3 && !bfp.barrier0){
+        bool immediate_loss = false;
         for(int j = 0; j < 8; j++){
           if(bfp.deck_or_hand1(j)){
-            if(j + 1 == 3 && bfp.deck_or_hand1(2) >= 2 && bfp.hand0[0] < 3){//相手が3を2枚持っている可能性がある場合
-              return false;
+            if(j + 1 == 3 && bfp.deck_or_hand1(2) >= 2 && bfp.hand0[0] < 3){
+              immediate_loss = true; break;
             }
-            //自分の手札より強いカードが存在する場合
-            else if(j + 1 > bfp.hand0[0]) return false;
+            else if(j + 1 > bfp.hand0[0]) {
+              immediate_loss = true; break;
+            }
           }
         }
+        if(immediate_loss){
+          all_true = false;
+          max_f = std::max(max_f, 1);
+          continue;
+        }
       }
-      //相手が魔術師を持っていて自分が姫を持っている場合
-      if(i + 1 == 5 && bfp.hand0[0] == 8 && !bfp.barrier0) return false;
 
+      if(i + 1 == 5 && bfp.hand0[0] == 8 && !bfp.barrier0) {
+        all_true = false;
+        max_f = std::max(max_f, 1);
+        continue;
+      }
+
+      // 2. 状態の更新
       struct bf_position next_bfp = bfp;
       next_bfp.trash[i] += 1;
-
       next_bfp.barrier1 = false;
-      next_bfp.turn = !bfp.turn;
+      next_bfp.is_my_turn = !bfp.is_my_turn;
       next_bfp = reset_flag_by_use(next_bfp, false, i + 1);
 
-      if( i + 1 == 5) next_bfp.not7_flag_e = true;
-      if( i + 1 == 3){
-        //騎士を使って残りのカードが手札以下の強さの場合(!=未満)
+      if(i + 1 == 5) next_bfp.not7_flag_e = true;
+
+      // 3. 各カードごとの再帰評価
+      if(i + 1 == 3){
         if(!bfp.barrier0) next_bfp.open_flag_e = bfp.hand0[0];
-        if(!draw_win(next_bfp, win)) return false;
-      } else if( i + 1 == 4){
+        auto res = draw_win(next_bfp);
+        if(res.first) max_f = std::max(max_f, res.second);
+        else all_true = false;
+      }
+      else if(i + 1 == 4){
         next_bfp.barrier1 = true;
-        if(!draw_win(next_bfp, win)) return false;
-      } else if( i + 1 == 5){
+        auto res = draw_win(next_bfp);
+        if(res.first) max_f = std::max(max_f, res.second);
+        else all_true = false;
+      }
+      else if(i + 1 == 5){
         if(bfp.open1() == 7) continue;
+
+        // 魔術師専用の集約ラムダ
+        auto eval_wiz_preds = [&](const std::vector<bf_position>& preds) -> std::pair<bool, int> {
+          if (preds.empty()) return {false, 0}; // 空なら敗北(深さ0)扱い
+          int local_max_f = -1;
+          bool local_all_true = true;
+          for (const auto& p : preds) {
+            auto res = enemy_turn_win(p);
+            if (res.first) local_max_f = std::max(local_max_f, res.second);
+            else local_all_true = false;
+          }
+          return {local_all_true, local_all_true ? local_max_f + 1 : 0};
+        };
+
         std::vector<bf_position> preds_toself = ef_wizard_win(next_bfp, true);
-        if (!std::all_of(preds_toself.begin(), preds_toself.end(), [win](const bf_position& p) {
-          return enemy_turn_win(p, win);
-        })) {
-          return false;
-        }
+        auto res_self = eval_wiz_preds(preds_toself);
+
         std::vector<bf_position> preds_toenemy = ef_wizard_win(next_bfp, false);
-        if (preds_toself.empty()) return false;
-        if (!std::all_of(preds_toenemy.begin(), preds_toenemy.end(), [win](const bf_position& p) {
-          return enemy_turn_win(p, win);
-        })) {
-          return false;
-        }
-      } else if( i + 1 == 6){
+        auto res_enemy = eval_wiz_preds(preds_toenemy);
+
+        if(res_self.first && res_enemy.first) max_f = std::max(res_self.second, res_enemy.second);
+        else all_true = false;
+      }
+      else if(i + 1 == 6){
         if(bfp.open1() == 7) continue;
         if(!bfp.barrier0){
+          bool gene_all_true = true;
+          int gene_max_f = -1;
+
           for(int j = 0; j < 8; j++){
+            if(gene_all_true) break;
             if(next_bfp.hand1(j)){
               struct bf_position next_bfp2 = next_bfp;
               next_bfp2.hand0[0] = j + 1;
               next_bfp2.open_flag_e = bfp.hand0[0];
-              if(!draw_win(next_bfp2, win)) return false;
+              auto res = draw_win(next_bfp2);
+              if(res.first) gene_max_f = std::max(gene_max_f, res.second);
+              else gene_all_true = false;
             }
           }
         } else {
-          if(!draw_win(next_bfp, win)) return false;
+          auto res = draw_win(next_bfp);
+          if(res.first) max_f = std::max(max_f, res.second);
+          else all_true = false;
         }
-      } else if( i + 1 == 7){
+      }
+      else if(i + 1 == 7){
         int open_card = bfp.open1();
         if(open_card >= 5 && open_card != 7) continue;
         next_bfp.lt5_flag_e = true;
-        if(!draw_win(next_bfp, win)) return false;
-      } else if(!draw_win(next_bfp, win)) return false;
-    }
-  }
-  return true;
-}
-
-bool draw_win(const bf_position& bfp, bool win){
-  int t = is_terminated_win(bfp);
-  if(t == 1){
-    return true;
-  } else if(t == -1){
-    return false;
-  }
-  for(int i = 0; i < 8; i++){
-    if(bfp.deck(i)){
-      // cout << bfp.count_deck() << "draw:" << i + 1 << endl;
-      bf_position bfp_h0 = draw(bfp, i + 1);
-      bfp_h0.barrier0 = false;
-      bfp_h0.turn = !bfp.turn;
-      bf_position bfp_h1 = bfp_h0;
-      if(!(use_win(bfp_h0, bfp_h0.hand0[0], win) || (bfp.hand0[0] != i + 1 && use_win(bfp_h1, bfp_h1.hand0[1], win)))){
-        return false;
+        auto res = draw_win(next_bfp);
+        if(res.first) max_f = std::max(max_f, res.second);
+        else all_true = false;
+      }
+      else {
+        auto res = draw_win(next_bfp);
+        if(res.first) max_f = std::max(max_f, res.second);
+        else all_true = false;
       }
     }
   }
-  return true;
+
+  // 指定された win に応じて最適な深さを +1 して返す
+  return {all_true, all_true ? max_f + 1 : 0};
+}
+
+std::pair<bool, int> draw_win(const bf_position& bfp) {
+  auto t = is_terminated_win(bfp);
+  if(t.first != 0){
+    return {t.first == 1, t.second};
+  }
+
+  bool all_true = true;
+  int max_f = -1;
+
+  for(int i = 0; i < 8; i++){
+    if(!all_true) break;
+    if(bfp.deck(i)){
+      bf_position bfp_h0 = draw(bfp, i + 1);
+      bfp_h0.barrier0 = false;
+      bfp_h0.is_my_turn = !bfp.is_my_turn;
+      bf_position bfp_h1 = bfp_h0;
+      if(commentablebfp) cout << bfp.count_deck() << "draw " << i + 1 << endl;
+
+      // --- 自分の手札の選択 (ORノード) ---
+      auto res0 = use_win(bfp_h0, bfp_h0.hand0[0]);
+
+      bool or_first = false;
+      int or_second = 0;
+
+      // 手札の2枚が違うカードなら、もう一方も評価する
+      if (bfp.hand0[0] != i + 1) {
+        auto res1 = use_win(bfp_h1, bfp_h1.hand0[1]);
+
+        if(res0.first){
+          or_first = true;
+          or_second = std::min(or_second, res0.second);
+        }
+        if(res1.first){
+          or_first = true;
+          or_second = std::min(or_second, res1.second);
+        }
+      } else {
+        // 同じカードなら片方の結果をそのまま使う
+        or_first = res0.first;
+        or_second = res0.second;
+      }
+
+      // --- 山札ドローの集約 (ANDノード) ---
+      if (or_first) {
+        max_f = std::max(max_f, or_second);
+      } else {
+        all_true = false;
+      }
+    }
+  }
+
+  if (max_f == -1) return {false, 0};
+
+  return {all_true, all_true ? max_f : 0};
 }
 
 bf_position draw(const bf_position& bfp, int draw_card){
@@ -677,7 +833,7 @@ bf_position draw(const bf_position& bfp, int draw_card){
 
 std::vector<bf_position> ef_wizard_win(const bf_position& bfp, bool to_0p){
   std::vector<bf_position> bfps;
-  if(bfp.turn == 1){//use_abswinの最初でturnを切り替えるためturn==1は0playerのターン
+  if(bfp.is_my_turn == false){//use_abswinの最初でturnを切り替えるためturn==falseは0playerのターン
     if(to_0p){
       if(bfp.hand0[0] == 8){
         // return false;
@@ -686,18 +842,14 @@ std::vector<bf_position> ef_wizard_win(const bf_position& bfp, bool to_0p){
       for(int i = 0; i < 8; i++){
         if(bfp.deck(i)){
           bf_position next_bfp = bfp;
-          next_bfp.turn = !bfp.turn;
+          next_bfp.is_my_turn = !bfp.is_my_turn;
           next_bfp.trash[bfp.hand0[0]-1] += 1;//手札捨てる
           next_bfp.hand0[0] = i + 1;//手札引く
           next_bfp.reset_flag(true);//自分のフラグリセット
           bfps.push_back(next_bfp);
-          // if(!enemy_turn_win(next_bfp)){
-          //   return false;
-          // }
         }
       }
       return bfps;
-      // return true;
     } else {
       if(bfp.barrier1){
         bfps.push_back(bfp);
@@ -707,18 +859,14 @@ std::vector<bf_position> ef_wizard_win(const bf_position& bfp, bool to_0p){
         if(bfp.hand1(i) && i + 1 != 8){
           bf_position next_bfp = bfp;
           next_bfp.trash[i] += 1;
-          next_bfp.turn = !bfp.turn;
+          next_bfp.is_my_turn = !bfp.is_my_turn;
           next_bfp.reset_flag(false);//相手のフラグリセット
           bfps.push_back(next_bfp);
-          // if(!enemy_turn_win(next_bfp)){
-          //   return false;
-          // }
         }
       }
-      // return true;
       return bfps;
     }
-  } else {//turn == 0
+  } else {//is_my_turn == true
     if(to_0p){
       if(bfp.barrier0){
         bfps.push_back(bfp);
@@ -727,36 +875,27 @@ std::vector<bf_position> ef_wizard_win(const bf_position& bfp, bool to_0p){
       for(int i = 0; i < 8; i++){
         if(bfp.deck(i)){
           bf_position next_bfp = bfp;
-          next_bfp.turn = !bfp.turn;
+          next_bfp.is_my_turn = !bfp.is_my_turn;
           next_bfp.trash[bfp.hand0[0]-1] += 1;//手札捨てる
           next_bfp.hand0[0] = i + 1;//手札引く
           next_bfp.reset_flag(true);//自分のフラグリセット
           bfps.push_back(next_bfp);
-          // if(!draw_win(next_bfp)){
-          //   return false;
-          // }
         }
       }
       return bfps;
-      // return true;
     } else {
       if(bfp.open1() == 8){
-        // return true;
         return bfps;
       }
       for(int i = 0; i < 8; i++){
         if(bfp.hand1(i) && i + 1 != 8){
           bf_position next_bfp = bfp;
-          next_bfp.turn = !bfp.turn;
+          next_bfp.is_my_turn = !bfp.is_my_turn;
           next_bfp.trash[i] += 1;
           next_bfp.reset_flag(false);//相手のフラグリセット
           bfps.push_back(next_bfp);
-          // if(!draw_win(next_bfp)){
-          //   return false;
-          // }
         }
       }
-      // return true;
       return bfps;
     }
   }
@@ -764,7 +903,7 @@ std::vector<bf_position> ef_wizard_win(const bf_position& bfp, bool to_0p){
 
 void bf_position::print() const{
   // cout << "depth : " << depth << endl;
-  cout << "barrier0 : " << barrier0 << " barrier1 : " << barrier1 << " turn : " << turn << endl;
+  cout << "barrier0 : " << barrier0 << " barrier1 : " << barrier1 << " is_my_turn : " << is_my_turn << endl;
   cout << "open_flag_e : " << open_flag_e << " sol_flag_e : " << sol_flag_e << " lt5_flag_e : " << lt5_flag_e << " not7_flag_e : " << not7_flag_e << endl;
   cout << "open_flag_s : " << open_flag_s << " sol_flag_s : " << sol_flag_s << " lt5_flag_s : " << lt5_flag_s << " not7_flag_s : " << not7_flag_s << endl;
   cout << "hand0 : " << hand0[0] << " " << hand0[1] << " ";
@@ -797,14 +936,22 @@ bool rnd_is_win(int open[3], string history, bool rnd){
     }
   }
   if (is_prefix_match){
+    win_move[0]++;
     return true;
-  } else if(is_win(bfp)){
+  }
+  auto res = is_win(bfp);
+  if(res.first){
     win_history.insert(history);
+    win_move[res.second]++;
+    if(res.second > hist_max){
+      hist_max = res.second;
+      max_history = history;
+    }
     for (auto it_clean = it_ub; it_clean != win_history.end(); ) {
         if (it_clean->rfind(history, 0) == 0) {
-            it_clean = win_history.erase(it_clean);
+          it_clean = win_history.erase(it_clean);
         } else {
-            break;
+          break;
         }
     }
     return true;
@@ -923,7 +1070,7 @@ void output_actions_history(std::string s, bool rnd){
 
 bf_position swap_player(const bf_position& bfp, const int hand){
   bf_position next_bfp = bfp;
-  next_bfp.turn = !bfp.turn;
+  next_bfp.is_my_turn = !bfp.is_my_turn;
   std::swap(next_bfp.barrier0, next_bfp.barrier1);
   std::swap(next_bfp.open_flag_e, next_bfp.open_flag_s);
   std::swap(next_bfp.sol_flag_e, next_bfp.sol_flag_s);
@@ -961,56 +1108,88 @@ int is_terminated_lose(const bf_position& bfp){
   return 0;
 }
 
-int is_lose(const bf_position& bfp){
-  if(bfp.turn == 1){
+std::pair<int, int> is_lose(const bf_position& bfp) {
+  // --- 相手のターンの場合 ---
+  if(!bfp.is_my_turn){
+    int max_depth = -1;
+    bool eval = false;
+
     for(int i = 0; i < 8; i++){
       if(bfp.hand1(i)){
+        eval = true;
         struct bf_position next_bfp = swap_player(bfp, i + 1);
-        if(!draw_win(next_bfp, false)) return 0;
+
+        auto res = draw_win(next_bfp);
+
+        if(!res.first) return {0, 0};
+
+        // 必敗ルートの深さを集約 (一番長く粘れる深さを記録)
+        max_depth = std::max(max_depth, res.second);
       }
     }
-    return 9;
+
+    // 全ての手札候補で相手が勝つ(自分が負ける)場合
+    if (!eval) return {0, 0};
+    return {9, max_depth};
   }
+
+  // --- 自分のターンの場合 ---
   else if(bfp.hand0[1] > 0){
     int t = is_terminated_lose(bfp);
     if(t == 1){
-      return 0;
+      return {0, 0};
     } else if(t == -1){
-      if(bfp.have0(3)) return 3;
+      // 即時敗北なので深さは 0
+      if(bfp.have0(3)) return {3, 0};
       if(bfp.count_deck() < 2){
-        if(bfp.hand_e_min() > bfp.hand_s_max()) return 9;
-        return bfp.hand_e_min();
+        if(bfp.hand_e_min() > bfp.hand_s_max()) return {9, 0};
+        return {bfp.hand_e_min(), 0};
       }
-      return 9;
+      return {9, 0};
     }
-    if(bfp.have0(8)) return 8;
 
-    bool use0 = use_lose(bfp, bfp.hand0[0]);
-    bool use1 = use_lose(bfp, bfp.hand0[1]);
-    if(use0 && use1) return 9;
-    else if(use0) return bfp.hand0[0];
-    else if(use1) return bfp.hand0[1];
-    return 0;
+    if(bfp.have0(8)) return {8, 0};
 
+    // use_lose は std::pair<bool, int> を返す
+    auto res0 = use_lose(bfp, bfp.hand0[0]);
+    auto res1 = use_lose(bfp, bfp.hand0[1]);
+
+    bool use0 = res0.first;
+    bool use1 = res1.first;
+
+    if(use0 && use1) {
+      // どちらのカードを使っても必敗の場合は、より長く延命できる(深さが大きい)方を採用
+      return {9, std::max(res0.second, res1.second)};
+    }
+    else if(use0) return {bfp.hand0[0], res0.second};
+    else if(use1) return {bfp.hand0[1], res1.second};
+
+    return {0, 0};
   }
-  else if(bfp.hand0[1] == 0) return 0;//exit(1);
-  return 0;
+
+  // 手札が1枚しかないなどの行動不可時
+  else if(bfp.hand0[1] == 0) {
+    return {0, 0};
+  }
+
+  return {0, 0};
 }
 
-bool use_lose(const bf_position& bfp, int card){
+std::pair<bool, int> use_lose(const bf_position& bfp, int card) {
   if(card == 3 && !bfp.barrier0 && bfp.hand_e_min() < bfp.other_hand0(3)){
-    return false;
+    return {false, 0};
   }
   struct bf_position next_bfp = bfp;
-  next_bfp.turn = !bfp.turn;
-  next_bfp.trash[card-1] += 1;//公開する
-  //手札を減らす
+  next_bfp.is_my_turn = !bfp.is_my_turn;
+  next_bfp.trash[card-1] += 1; // 公開する
+
+  // 手札を減らす
   if(bfp.hand0[0] == card){
     next_bfp.hand0[0] = bfp.hand0[1];
     next_bfp.hand0[1] = 0;
   } else if(bfp.hand0[1] == card){
     next_bfp.hand0[1] = 0;
-  }else {
+  } else {
     exit(1);
   }
 
@@ -1018,97 +1197,134 @@ bool use_lose(const bf_position& bfp, int card){
 
   if(card >= 5) next_bfp.not7_flag_s = true;
 
-  // cout << "use_lose card: " << card << endl;
+  // ANDノードの深さ集約用変数
+  bool all_true = true;
+  int min_t = 1e9;
+  int max_f = -1;
+  bool eval = false;
+
   if(bfp.barrier1 && card != 4 && card != 5 && card != 7){
     for(int i = 0; i < 8; i++){
       if(next_bfp.hand1(i)){
+        eval = true;
         struct bf_position next_bfp2 = swap_player(next_bfp, i + 1);
-        if(!draw_win(next_bfp2, false)) return false;
+        auto res = draw_win(next_bfp2);
+        if(res.first) min_t = std::min(min_t, res.second);
+        else { all_true = false; max_f = std::max(max_f, res.second); }
       }
     }
-    return true;
   }
   else if(card == 1){
-    return false;
-  }else if(card == 2){
+    return {false, 0};
+  }
+  else if(card == 2){
     for(int i = 0; i < 8; i++){
       if(bfp.hand1(i)){
+        eval = true;
         struct bf_position next_bfp2 = swap_player(next_bfp, i + 1);
         next_bfp2.open_flag_s = i + 1;
-        if(!draw_win(next_bfp2, false)) return false;
+        auto res = draw_win(next_bfp2);
+        if(res.first) min_t = std::min(min_t, res.second);
+        else { all_true = false; max_f = std::max(max_f, res.second); }
       }
     }
-    return true;
-  }else if(card == 3){//騎士でないカード==相手の手札候補の最小値
+  }
+  else if(card == 3){ // 騎士でないカード==相手の手札候補の最小値
     for(int i = 0; i < 8; i++){
       if(bfp.hand1(i)){
         if(bfp.other_hand0(3) == i + 1){
+          eval = true;
           struct bf_position next_bfp2 = swap_player(next_bfp, i + 1);
           next_bfp2.open_flag_e = i + 1;
           next_bfp2.open_flag_s = i + 1;
-          if(!draw_win(next_bfp2, false)) return false;
-        }else if(bfp.other_hand0(3) > i + 1) return false;
+          auto res = draw_win(next_bfp2);
+          if(res.first) min_t = std::min(min_t, res.second);
+          else { all_true = false; max_f = std::max(max_f, res.second); }
+        } else if(bfp.other_hand0(3) > i + 1) {
+          // 即時敗北しない＝相手が勝てない＝false扱いとして集約
+          eval = true;
+          all_true = false;
+          max_f = std::max(max_f, 0);
+        }
       }
     }
-    return true;
-  }else if(card == 4){
+  }
+  else if(card == 4){
     next_bfp.barrier0 = true;
     for(int i = 0; i < 8; i++){
       if(next_bfp.hand1(i)){
+        eval = true;
         struct bf_position next_bfp2 = swap_player(next_bfp, i + 1);
-        if(!draw_win(next_bfp2, false)) return false;
+        auto res = draw_win(next_bfp2);
+        if(res.first) min_t = std::min(min_t, res.second);
+        else { all_true = false; max_f = std::max(max_f, res.second); }
       }
     }
-    return true;
-  }else if(card == 5){
-    bool toself_win_flag = false;
-    bool toenemy_win_flag = false;
+  }
+  else if(card == 5){
     std::vector<bf_position> preds_toself = ef_wizard_win(next_bfp, true);
-    if (preds_toself.empty()) return false;
+    if (preds_toself.empty()) return {false, 0};
+
     for (const auto& next_bfp2 : preds_toself) {
       for(int i = 0; i < 8; i++){
         if(next_bfp2.hand1(i)){
+          eval = true;
           struct bf_position next_bfp3 = swap_player(next_bfp2, i + 1);
-          if(!draw_win(next_bfp3, false)) return false;
+          auto res = draw_win(next_bfp3);
+          if(res.first) min_t = std::min(min_t, res.second);
+          else { all_true = false; max_f = std::max(max_f, res.second); }
         }
       }
-      toself_win_flag = true;
     }
+
     std::vector<bf_position> preds_toenemy = ef_wizard_win(next_bfp, false);
-    if (preds_toenemy.empty()) return false;
+    if (preds_toenemy.empty()) return {false, 0};
+
     for (const auto& next_bfp2 : preds_toenemy) {
       for(int i = 0; i < 8; i++){
         if(next_bfp2.hand1(i)){
+          eval = true;
           struct bf_position next_bfp3 = swap_player(next_bfp2, i + 1);
-          if(!draw_win(next_bfp3, false)) return false;
+          auto res = draw_win(next_bfp3);
+          if(res.first) min_t = std::min(min_t, res.second);
+          else { all_true = false; max_f = std::max(max_f, res.second); }
         }
       }
-      toenemy_win_flag = true;
     }
-    return toself_win_flag && toenemy_win_flag;
-  }else if(card == 6){
+  }
+  else if(card == 6){
     next_bfp.open_flag_e = bfp.other_hand0(card);
     for(int i = 0; i < 8; i++){
       if(bfp.hand1(i)){
+        eval = true;
         struct bf_position next_bfp2 = next_bfp;
         next_bfp2.hand0[0] = i + 1;
         next_bfp2.open_flag_s = i + 1;
         struct bf_position next_bfp3 = swap_player(next_bfp2, i + 1);
-        if(!draw_win(next_bfp3, false)) return false;
+        auto res = draw_win(next_bfp3);
+        if(res.first) min_t = std::min(min_t, res.second);
+        else { all_true = false; max_f = std::max(max_f, res.second); }
       }
     }
-    return true;
-  }else if(card == 7){
+  }
+  else if(card == 7){
     next_bfp.lt5_flag_s = true;
     for(int i = 0; i < 8; i++){
       if(next_bfp.hand1(i)){
+        eval = true;
         struct bf_position next_bfp2 = swap_player(next_bfp, i + 1);
-        if(!draw_win(next_bfp2, false)) return false;
+        auto res = draw_win(next_bfp2);
+        if(res.first) min_t = std::min(min_t, res.second);
+        else { all_true = false; max_f = std::max(max_f, res.second); }
       }
     }
-    return true;
   }
-  return false;
+
+  // 1つも評価対象がなかった場合は元の return false に相当
+  if (!eval) return {false, 0};
+
+  // 全て true なら min_t、1つでも false があれば max_f に 1 加算して返す
+  return {all_true, (all_true ? min_t : max_f) + 1};
 }
 
 std::vector<int> able_actions(const bf_position& bfp, int card, bool rnd) {
@@ -1116,7 +1332,7 @@ std::vector<int> able_actions(const bf_position& bfp, int card, bool rnd) {
   std::vector<int> actions;
 
   if (card == 5) {
-    int my_id = bfp.turn ? 1 : 0;
+    int my_id = bfp.is_my_turn ? 0 : 1;
     int enemy_id = 1 - my_id;
     // --- 自分を対象とする場合 (to = 0) ---
     // 自分が引くカード
@@ -1170,7 +1386,7 @@ bool rnd_is_lose(int open[3], string history, bool rnd){
     }
   }
 
-  int loseaction = is_lose(bfp);
+  int loseaction = is_lose(bfp).first;
   if(loseaction > 0){
     if(loseaction == 9) {
       lose_history.insert(history);
