@@ -145,7 +145,7 @@ void check_allhistory(int open[3]) {
 
 void check_history(int open[3]) {
 //   std::vector<int> all_actions = {25, 43, 32, 45, 412, 30, 420, 420, 33, 40, 40, 31, 43, 40, 37};
-    std::vector<int> actions = {21, 421, 32, 421, 411, 35, 417, 43, 30};
+    std::vector<int> actions = { 21, 421, 32, 421, 411, 35, 417, 43, 30 };
     for(auto x : actions)
         cout << x << " ";
     cout << endl;

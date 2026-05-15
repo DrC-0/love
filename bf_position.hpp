@@ -592,7 +592,7 @@ std::pair<bool, int> use_win(const bf_position& bfp, int card){
         if (res.first) local_max_f = std::max(local_max_f, res.second);
         else local_all_true = false;
       }
-      return {local_all_true, local_all_true ? local_max_f + 1 : 0};
+      return {local_all_true, local_all_true ? local_max_f : 0};
     };
 
     auto res_self = eval_preds(preds_toself);
@@ -713,7 +713,7 @@ std::pair<bool, int> enemy_turn_win(const bf_position& bfp) {
             if (res.first) local_max_f = std::max(local_max_f, res.second);
             else local_all_true = false;
           }
-          return {local_all_true, local_all_true ? local_max_f + 1 : 0};
+          return {local_all_true, local_all_true ? local_max_f : 0};
         };
 
         std::vector<bf_position> preds_toself = ef_wizard_win(next_bfp, true);
@@ -1109,42 +1109,18 @@ int is_terminated_lose(const bf_position& bfp){
 }
 
 std::pair<int, int> is_lose(const bf_position& bfp) {
-  // --- 相手のターンの場合 ---
-  if(!bfp.is_my_turn){
-    int max_depth = -1;
-    bool eval = false;
-
-    for(int i = 0; i < 8; i++){
-      if(bfp.hand1(i)){
-        eval = true;
-        struct bf_position next_bfp = swap_player(bfp, i + 1);
-
-        auto res = draw_win(next_bfp);
-
-        if(!res.first) return {0, 0};
-
-        // 必敗ルートの深さを集約 (一番長く粘れる深さを記録)
-        max_depth = std::max(max_depth, res.second);
-      }
-    }
-
-    // 全ての手札候補で相手が勝つ(自分が負ける)場合
-    if (!eval) return {0, 0};
-    return {9, max_depth};
-  }
-
   // --- 自分のターンの場合 ---
-  else if(bfp.hand0[1] > 0){
+  if(bfp.hand0[1] > 0){
     int t = is_terminated_lose(bfp);
     if(t == 1){
       return {0, 0};
     } else if(t == -1){
       // 即時敗北なので深さは 0
-      if(bfp.have0(3)) return {3, 0};
       if(bfp.count_deck() < 2){
         if(bfp.hand_e_min() > bfp.hand_s_max()) return {9, 0};
         return {bfp.hand_e_min(), 0};
       }
+      if(bfp.have0(3)) return {3, 1};
       return {9, 0};
     }
 
@@ -1154,29 +1130,53 @@ std::pair<int, int> is_lose(const bf_position& bfp) {
     auto res0 = use_lose(bfp, bfp.hand0[0]);
     auto res1 = use_lose(bfp, bfp.hand0[1]);
 
-    bool use0 = res0.first;
-    bool use1 = res1.first;
-
-    if(use0 && use1) {
+    if(res0.first && res1.first) {
       // どちらのカードを使っても必敗の場合は、より長く延命できる(深さが大きい)方を採用
       return {9, std::max(res0.second, res1.second)};
     }
-    else if(use0) return {bfp.hand0[0], res0.second};
-    else if(use1) return {bfp.hand0[1], res1.second};
+    else if(res0.first) return {bfp.hand0[0], res0.second};
+    else if(res1.first) return {bfp.hand0[1], res1.second};
 
     return {0, 0};
   }
 
-  // 手札が1枚しかないなどの行動不可時
-  else if(bfp.hand0[1] == 0) {
-    return {0, 0};
+  // --- 相手のターンの場合 ---
+  else if(!bfp.is_my_turn){
+    int max_depth = -1;
+
+    for(int i = 0; i < 8; i++){
+      if(bfp.hand1(i)){
+        struct bf_position next_bfp = swap_player(bfp, i + 1);
+        auto res = draw_win(next_bfp);
+
+        if(res.first) max_depth = std::max(max_depth, res.second);
+        else return {0, 0};
+      }
+    }
+    // 全ての手札候補で相手が勝つ(自分が負ける)場合
+    return {9, max_depth};
+  }
+
+  // 自分のドロー前
+  else{
+    int max_t = -1;
+    for(int i = 0; i < 8; i++){
+      if(bfp.deck(i)){
+        struct bf_position next_bfp = draw(bfp, i + 1);
+        auto res = is_lose(next_bfp);
+        if(res.first == bfp.hand0[0] || res.first == 9) max_t = std::max(max_t, res.second);
+        else return {0, 0};
+      }
+    }
+
+    return {bfp.hand0[0], max_t};
   }
 
   return {0, 0};
 }
 
 std::pair<bool, int> use_lose(const bf_position& bfp, int card) {
-  if(card == 3 && !bfp.barrier0 && bfp.hand_e_min() < bfp.other_hand0(3)){
+  if(card == 3 && !bfp.barrier1 && bfp.hand_e_min() < bfp.other_hand0(3)){
     return {false, 0};
   }
   struct bf_position next_bfp = bfp;
