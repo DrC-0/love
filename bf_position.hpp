@@ -19,8 +19,6 @@ using namespace std;
 
 extern Rnd_Perfect_Hash rph;
 extern Org_Perfect_Hash oph;
-static std::set<std::string> win_history;
-static std::set<std::string> lose_history;
 
 extern int char_to_action(char c);
 extern int char_to_wizard(char c);
@@ -29,10 +27,7 @@ extern char action_to_char(int action, int card);
 extern char wizard_to_char(int to, int trash, int draw);
 extern char twonum_to_char(int card1, int card2);
 
-std::string max_history = "";
-int hist_max = 0;
 bool commentablebfp = false;
-int win_move[11];
 
 struct bf_position{
   bool is_my_turn;
@@ -96,7 +91,6 @@ std::pair<bool, int> draw_win(const bf_position& bfp);
 std::pair<bool, int> enemy_turn_win(const bf_position& bfp);
 std::vector<bf_position> ef_wizard(const bf_position& bfp, bool to_0p);
 bf_position draw(const bf_position& bfp, int draw_card);
-bool rnd_is_win(int open[3], string history, bool rnd);
 unsigned char action2char(int x, bool rnd);
 std::string actions_to_string(const std::vector<int>& actions, bool rnd);
 std::string get_actions_history(std::string s, bool rnd);
@@ -104,7 +98,7 @@ void output_actions_history(std::string s, bool rnd);
 int is_terminated_lose(const bf_position& bfp);
 std::pair<int, int> is_lose(const bf_position& bfp);
 std::pair<int, int> use_lose(const bf_position& bfp, int card);
-bool rnd_is_lose(int open[3], string history, bool rnd);
+std::vector<int> able_actions(const bf_position& bfp, int card, bool rnd, bool is_second_player);
 
 int trash_and_hand_s(const int i, const int hand[2], const int trash[8]){
   return trash[i] + (hand[0]  == i + 1 ? 1 : 0) + (hand[1]  == i + 1 ? 1 : 0);
@@ -964,42 +958,6 @@ void bf_position::print() const{
   cout << endl << endl;
 }
 
-bool rnd_is_win(int open[3], string history, bool rnd){
-  bf_position bfp(open, history, rnd);
-  bool is_prefix_match = false;
-  std::string parent;
-  auto it_ub = win_history.upper_bound(history);
-  if (it_ub != win_history.begin()) {
-    auto it_prev = std::prev(it_ub);
-    if (history.rfind(*it_prev, 0) == 0) {
-      is_prefix_match = true;
-      parent = *it_prev;
-    }
-  }
-  if (is_prefix_match){
-    win_move[0]++;
-    return true;
-  }
-  auto res = is_win(bfp);
-  if(res.first){
-    win_history.insert(history);
-    win_move[res.second]++;
-    if(res.second > hist_max){
-      hist_max = res.second;
-      max_history = history;
-    }
-    for (auto it_clean = it_ub; it_clean != win_history.end(); ) {
-        if (it_clean->rfind(history, 0) == 0) {
-          it_clean = win_history.erase(it_clean);
-        } else {
-          break;
-        }
-    }
-    return true;
-  }
-  return false;
-}
-
 unsigned char action2char(int x, bool rnd) {
   int act1, act2;
   if (x > 10000) {
@@ -1146,6 +1104,8 @@ int is_terminated_lose(const bf_position& bfp){
   return 0;
 }
 
+//<使うカード, 敗北するまでのターン数>を返す。敗北しない場合は<0, 0>
+//ルール上すでに敗北の場合9, 魔術師の使用による敗北で,対象自分のみなら15,対象相手のみなら25
 std::pair<int, int> is_lose(const bf_position& bfp) {
   // --- 自分のターンの場合 ---
   if(bfp.hand0[1] > 0){
@@ -1172,6 +1132,7 @@ std::pair<int, int> is_lose(const bf_position& bfp) {
       else return {bfp.hand0[1], res1.second};
     }else if(res0.first == 1) return {bfp.hand0[0], res0.second};
     else if(res1.first == 1) return {bfp.hand0[1], res1.second};
+    //魔術師の使用で敗北する場合5, 自分に対してのみ敗北の場合15, 相手に対してのみ敗北の場合25
     else if(res0.first == 2 || res1.first == 2) return {15, std::max(res0.second, res1.second)};
     else if(res0.first == 3 || res1.first == 3) return {25, std::max(res0.second, res1.second)};
     return {0, 0};
@@ -1300,6 +1261,7 @@ std::pair<int, int> use_lose(const bf_position& bfp, int card) {
     auto res_self = eval_preds(preds_toself);
     std::vector<bf_position> preds_toenemy = ef_wizard(next_bfp, false);
     auto res_enemy = eval_preds(preds_toenemy);
+    //5の使用で負ける場合1, 自分への使用のみの場合2, 相手への使用のみの場合3, どちらも負けない場合0
     if(res_self.first && res_enemy.first) return {1, std::max(res_self.second, res_enemy.second)};
     else if(res_self.first) return {2, res_self.second};
     else if(res_enemy.first) return {3, res_enemy.second};
@@ -1335,32 +1297,31 @@ std::pair<int, int> use_lose(const bf_position& bfp, int card) {
   return {0, 0};
 }
 
-std::vector<int> able_actions(const bf_position& bfp, int card, bool rnd) {
+std::vector<int> able_actions(const bf_position& bfp, int card, bool rnd, bool is_second_player) {
   int base = 40 + card - 1;
   std::vector<int> actions;
 
-  if (card == 5) {
-    int my_id = bfp.is_my_turn ? 0 : 1;
-    int enemy_id = 1 - my_id;
-    // --- 自分を対象とする場合 (to = 0) ---
-    // 自分が引くカード
-    for (int j = 0; j < 8; j++)
-      if(bfp.deck(j)) actions.push_back(base * 1000 + my_id * 100 + (bfp.other_hand0(card) - 1) * 10 + j);
-
-    // --- 相手を対象とする場合 (to = 1) ---
-    if (!bfp.barrier1) {
-      for (int i = 0; i < 8; i++) {
-        if (bfp.hand1(i)) { // 相手が捨てさせられるカード
-          actions.push_back(base * 1000 + enemy_id * 100 + i * 10 + 0);
+  if (card % 10 == 5) {
+    // --- 自分を対象とする場合 ---
+    if(card != 25){//card == (5 or 15)
+      for (int j = 0; j < 8; j++)
+        if(bfp.deck(j)) actions.push_back(base * 1000 + is_second_player * 100 + (bfp.other_hand0(card) - 1) * 10 + j);
+    }
+    // --- 相手を対象とする場合 ---
+    if(card != 15){//card == (5 or 25)
+      if (!bfp.barrier1) {
+        for (int i = 0; i < 8; i++) {
+          if (bfp.hand1(i)) { // 相手が捨てさせられるカード
+            actions.push_back(base * 1000 + !is_second_player * 100 + i * 10 + 0);
+          }
         }
-      }
-    } else actions.push_back(base * 1000 + enemy_id * 100);
+      } else actions.push_back(base * 1000 + !is_second_player * 100);
+    }
   }
   else if (card == 4 || card == 7 || bfp.barrier1 || (card == 1 && rnd)) {
     actions.push_back(base);
   }
   else if ((card == 1 && !rnd)) {
-    // 相手の判明するカード
     for (int i = 1; i < 8; i++)
       if (bfp.hand1(i)) actions.push_back(base * 10 + i);
   }
@@ -1381,47 +1342,6 @@ std::vector<int> able_actions(const bf_position& bfp, int card, bool rnd) {
   }
 
   return actions;
-}
-
-bool rnd_is_lose(int open[3], string history, bool rnd){
-  bf_position bfp(open, history, rnd);
-
-  auto it_ub = lose_history.upper_bound(history);
-  if (it_ub != lose_history.begin()) {
-    auto it_prev = std::prev(it_ub);
-    if (history.rfind(*it_prev, 0) == 0) {
-      return true; // プレフィックスが見つかったらここで早期リターン
-    }
-  }
-
-  int loseaction = is_lose(bfp).first;
-  if(loseaction > 0){
-    if(loseaction == 9) {
-      lose_history.insert(history);
-
-      // history 自体が必敗なので、history から始まる長い履歴をすべて削除
-      auto it_clean = lose_history.upper_bound(history);
-      while (it_clean != lose_history.end() && it_clean->rfind(history, 0) == 0) {
-        it_clean = lose_history.erase(it_clean);
-      }
-    }
-    else {
-      auto actions = able_actions(bfp, loseaction, rnd);
-      for (int act : actions) {
-        std::string new_hist = history + std::string(1, action2char(act, rnd));
-        lose_history.insert(new_hist);
-
-        // 追加した new_hist から始まる長い履歴のみを個別に削除
-        auto it_clean = lose_history.upper_bound(new_hist);
-        while (it_clean != lose_history.end() && it_clean->rfind(new_hist, 0) == 0) {
-          it_clean = lose_history.erase(it_clean);
-        }
-      }
-    }
-    return true;
-  }
-
-  return false;
 }
 
 #endif
