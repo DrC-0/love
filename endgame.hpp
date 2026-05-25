@@ -183,21 +183,23 @@ bool is_legal_state(const State& s){
     // if(commentable) std::cout << "B" << std::endl;
     if(s.barrier && s.trash[3] < 1) return false;
     if((s.lt5_flag_s || s.lt5_flag_e) && s.trash[6] < 1) return false;
-    if((s.sol_flag_e > 0 ? 1 : 0) + (s.sol_flag_s > 0 ? 1 : 0) > s.trash[0]) return false;
+    if((s.sol_flag_e[0] > 0 ? 1 : 0) + (s.sol_flag_e[1] > 0 ? 1 : 0) + (s.sol_flag_s[0] > 0 ? 1 : 0) + (s.sol_flag_s[1] > 0 ? 1 : 0) > s.trash[0]) return false;
     if((s.not7_flag ? 1 : 0) > s.trash[4]) return false;
 
     int active_opens = (s.open_flag_s > 0 ? 1 : 0) + (s.open_flag_e > 0 ? 1 : 0);
     int max_possible_opens = s.trash[1] * 1 + s.trash[2] * 2 + s.trash[5] * 2;
     if (active_opens > max_possible_opens) return false;
 
-    if(s.sol_flag_e > 0 && max_num[s.sol_flag_e-1] < visible_card[s.sol_flag_e-1] + 1)  return false;
-    if(s.sol_flag_s > 0 && max_num[s.sol_flag_s-1] < s.trash[s.sol_flag_s-1] + 1)  return false;
-    if((s.not7_flag || s.sol_flag_e == 7 || s.sol_flag_s == 7) && visible_card[6] > 0) return false;
+    //すでにすべて見えているカードに対して兵士宣言はしない
+    if(s.sol_flag_e[0] > 0 && max_num[s.sol_flag_e[0]-1] <= visible_card[s.sol_flag_e[0]-1])  return false;
+    if(s.sol_flag_e[1] > 0 && max_num[s.sol_flag_e[1]-1] <= visible_card[s.sol_flag_e[1]-1])  return false;
+    if(s.sol_flag_s[0] > 0 && max_num[s.sol_flag_s[0]-1] <= s.trash[s.sol_flag_s[0]-1])  return false;
+    if(s.sol_flag_s[1] > 0 && max_num[s.sol_flag_s[1]-1] <= s.trash[s.sol_flag_s[1]-1])  return false;
     if(s.open_flag_s > 0 && !in(s.hand, s.open_flag_s)) return false;
 
-    if(s.open_flag_e > 0 && max_num[s.open_flag_e-1] -1 < visible_card[s.open_flag_e-1] + (s.sol_flag_s == s.open_flag_e ? 1 : 0 )) return false;
-    if(s.open_flag_s > 0 && max_num[s.open_flag_s-1] -1 < s.trash[s.open_flag_s-1] + (s.sol_flag_e == s.open_flag_s ? 1 : 0 )) return false;
-    if(s.sol_flag_e == 7 && s.not7_flag) return false;
+    //すでにすべて見えているカードに対して兵士宣言や兵士以外の宣言はしない
+    // if(s.open_flag_e > 0 && max_num[s.open_flag_e-1] -1 < visible_card[s.open_flag_e-1] + ((s.sol_flag_s[0] == s.open_flag_e) || (s.sol_flag_s[1] == s.open_flag_e) ? 1 : 0 )) return false;
+    // if(s.open_flag_s > 0 && max_num[s.open_flag_s-1] -1 < s.trash[s.open_flag_s-1] + ((s.sol_flag_e[0] == s.open_flag_s || s.sol_flag_e[1] == s.open_flag_s) ? 1 : 0 )) return false;
 
     bool p = false;
     for (int i = 0; i < 8; ++i) {
@@ -205,14 +207,17 @@ bool is_legal_state(const State& s){
     }
     if(!p) return false;
 
+    // 合法でない手札は1枚まで
     int illegal = 0;
     if(s.lt5_flag_s && s.hand[0] >= 5) illegal++;
     if(s.lt5_flag_s && s.hand[1] >= 5) illegal++;
-    if(s.sol_flag_s > 1 && s.hand[0] == s.sol_flag_s) illegal++;
-    if(s.sol_flag_s > 1 && s.hand[1] == s.sol_flag_s) illegal++;
+    if(s.sol_flag_s[0] > 1 && s.hand[0] == s.sol_flag_s[0]) illegal++;
+    if(s.sol_flag_s[0] > 1 && s.hand[1] == s.sol_flag_s[0]) illegal++;
+    if(s.sol_flag_s[1] > 1 && s.hand[0] == s.sol_flag_s[1]) illegal++;
+    if(s.sol_flag_s[1] > 1 && s.hand[1] == s.sol_flag_s[1]) illegal++;
     if(illegal > 1) return false;
 
-    if (s.sol_flag_s == 1 || s.sol_flag_e == 1) exit(1);
+    if (s.sol_flag_s[0] == 1 || s.sol_flag_s[1] == 1 || s.sol_flag_e[0] == 1 || s.sol_flag_e[1] == 1) exit(1);
     return true;
 }
 
@@ -323,7 +328,7 @@ std::vector<State> set_hand(const State s, const int hand){
         if(s2.hand_s(i) > 0){
             State s3 = s2;
             s3.hand[0] = i + 1;
-            if(s3.trash[i] + 1 == max_num[i] && s3.sol_flag_e == i + 1) s3.sol_flag_e = 0;
+            if(s3.trash[i] + 1 == max_num[i] && in(s3.sol_flag_e, i + 1)) s3.rm_sol_e(i + 1);
             for(int j = 0; j < 8; j++){
                 if(s3.deck(j)){
                     State s4 = s3;
@@ -356,7 +361,8 @@ std::vector<State> get_state_by_action(const State& s, const Action a){
         else if(a == Wiz_self){
             s2.trash[hand-1]++;
             s2.lt5_flag_e = false;
-            s2.sol_flag_e = 0;
+            s2.sol_flag_e[0] = 0;
+            s2.sol_flag_e[1] = 0;
             s2.open_flag_e= 0;
         }
         else if(a == Wiz_enemy){s2.not7_flag = true;}
@@ -366,14 +372,15 @@ std::vector<State> get_state_by_action(const State& s, const Action a){
     }
 
     if(Sol_2 <= a && a <= Sol_8){
-        if(s2.trash[a+1] < max_num[a+1]) s2.sol_flag_s = a+2;
+        if(s2.trash[a+1] < max_num[a+1]) s2.add_sol_s(a+2);
         states = set_hand(s2, hand);
     }
     else if(a == Priest){s2.barrier = true; states = set_hand(s2, hand);}
     else if(a == Wiz_self){
         s2.trash[hand-1]++;
         s2.lt5_flag_e = false;
-        s2.sol_flag_e = 0;
+        s2.sol_flag_e[0] = 0;
+        s2.sol_flag_e[1] = 0;
         s2.open_flag_e= 0;
         states = set_hand(s2, hand);
     }
@@ -400,7 +407,8 @@ std::vector<State> get_state_by_action(const State& s, const Action a){
                 State s3 = s2;
                 s3.trash[i]++;
                 s3.lt5_flag_s = false;
-                s3.sol_flag_s = 0;
+                s3.sol_flag_s[0] = 0;
+                s3.sol_flag_s[1] = 0;
                 s3.open_flag_s= 0;
                 s3.not7_flag = true;
                 states = set_hand(s3, hand);

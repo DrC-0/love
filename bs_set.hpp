@@ -10,7 +10,7 @@ const int max_num[8] = {5, 2, 2, 2, 2, 1, 1, 1};
 #include <iomanip>
 #include <compare>
 
-// #include "bf_position.hpp"
+// #include "State.hpp"
 // #include "log_util.hpp"
 // #include "endgame.hpp"
 
@@ -22,8 +22,8 @@ struct State {
     bool lt5_flag_e;
     int open_flag_s; // 0-8
     int open_flag_e; // 0-8
-    int sol_flag_s;  // 0, 2-8
-    int sol_flag_e;  // 0, 2-8
+    int sol_flag_s[2];  // 0, 2-8 (29パターン)
+    int sol_flag_e[2];  // 0, 2-8 (29パターン)
     int hand[2];     // [min, max]
     int trash[8];   // 各カードの残り枚数
     auto operator<=>(const State&) const = default;
@@ -43,13 +43,19 @@ struct State {
     int total_hand_e_count() const;
     double hand_e_prob(const int i) const;
     void print()const;
+    void reset_flag(bool to_self);
+    void add_sol_s(int card);
+    void add_sol_e(int card);
+    void rm_sol_s(int card);
+    void rm_sol_e(int card);
 };
 
 const int TRASH_BASES[8] = {6, 3, 3, 3, 3, 2, 2, 2};
 const int TRASH_MAX = 3888; // 6*3*3*3*3*2*2*2
 const int HAND_MAX = 36;
-const int COMPLEX_SELF_MAX = 18;
-const int COMPLEX_ENEMY_MAX = 41;
+const int SOL_MAX = 29;
+const int COMPLEX_SELF_MAX = 60;
+const int COMPLEX_ENEMY_MAX = 104;
 
 // 手札 {h0, h1} -> 0~35
 int encode_hand_idx(int h0, int h1) {
@@ -98,111 +104,136 @@ void decode_trash_idx(int idx, int trash_out[8]) {
     }
 }
 
-inline int map_sol(int sol_flag) {
-    assert(sol_flag != 1 && sol_flag >= 0 && sol_flag <= 8);
-    return (sol_flag == 0) ? 0 : (sol_flag - 1);
+inline int map_sol_array(const int sol[2]) {
+    assert(sol[0] >= 0 && sol[0] <= 8 && sol[0] != 1);
+    assert(sol[1] >= 0 && sol[1] <= 8 && sol[1] != 1);
+    assert(sol[0] < sol[1] || sol[1] == 0); // 条件: sol[0]<sol[1] (ただし片方0の場合はsol[1]==0)
+
+    if (sol[0] == 0 && sol[1] == 0) return 0;
+
+    if (sol[1] == 0) {
+        // [1-7]: 片方のみ保持 (sol[0]は 2~8 -> 1~7にマッピング)
+        return sol[0] - 1;
+    }
+
+    // [8-28]: 両方保持。sol[0] < sol[1] (組み合わせロジック)
+    int v0 = sol[0] - 1; // 1~6
+    int v1 = sol[1] - 1; // 2~7
+    int idx = 8;
+    for (int i = 1; i < v0; ++i) {
+        idx += (7 - i);
+    }
+    idx += (v1 - v0 - 1);
+    return idx;
 }
 
-inline int unmap_sol(int val) {
-    return (val == 0) ? 0 : (val + 1);
+inline void unmap_sol_array(int val, int sol_out[2]) {
+    if (val == 0) {
+        sol_out[0] = 0;
+        sol_out[1] = 0;
+        return;
+    }
+    if (val >= 1 && val <= 7) {
+        sol_out[0] = val + 1;
+        sol_out[1] = 0;
+        return;
+    }
+
+    // val >= 8 (両方保持しているケースの復元)
+    int rem = val - 8;
+    for (int v0 = 1; v0 <= 6; ++v0) {
+        int ways = 7 - v0;
+        if (rem < ways) {
+            sol_out[0] = v0 + 1;
+            sol_out[1] = v0 + 1 + rem + 1;
+            return;
+        }
+        rem -= ways;
+    }
 }
 
-int encode_self(int open_s, int sol_s, bool lt5_s, const int hand[2]) {
+int encode_self(int open_s, const int sol_s[2], bool lt5_s, const int hand[2]) {
     if (open_s != 0) {
-        // Openがある場合: 値そのものではなく、Handのどちらと一致するかを見る
+        // [58, 59]: Openがある場合 (旧 16, 17)
         if (open_s == hand[0]) {
-            return 16; // Open Hand[0]
+            return 58; // Open Hand[0]
         } else if (open_s == hand[1]) {
-            return 17; // Open Hand[1]
+            return 59; // Open Hand[1]
         } else {
-            // エラー: Openカードが手札にない
             assert(false && "Open card not found in hand!");
             return -1;
         }
     } else {
-        // [0 - 15]: open_s == 0
-        // lt5_s (2通り) * sol_s (8通り) = 16通り
-        return map_sol(sol_s) + (lt5_s ? 8 : 0);
+        // [0 - 57]: open_s == 0
+        // sol_s (29通り) * lt5_s (2通り) = 58通り
+        return map_sol_array(sol_s) + (lt5_s ? SOL_MAX : 0);
     }
 }
 
-void decode_self(int val, int& open_s, int& sol_s, bool& lt5_s, const int hand[2]) {
-    // 初期化
-    open_s = 0; sol_s = 0; lt5_s = false;
+void decode_self(int val, int& open_s, int sol_s[2], bool& lt5_s, const int hand[2]) {
+    open_s = 0; sol_s[0] = 0; sol_s[1] = 0; lt5_s = false;
 
-    if (val == 16) {
-        // Case: Open Hand[0]
+    if (val == 58) {
         open_s = hand[0];
     }
-    else if (val == 17) {
-        // Case: Open Hand[1]
+    else if (val == 59) {
         open_s = hand[1];
     }
     else {
-        // Case: Open == 0 (0~15)
-        lt5_s = (val >= 8); // 上位ビット
-        sol_s = unmap_sol(val % 8);
+        lt5_s = (val >= SOL_MAX);
+        unmap_sol_array(val % SOL_MAX, sol_s);
     }
 }
 
-int encode_enemy(bool barrier, int open_e, int sol_e, bool lt5_e, bool not7) {
+int encode_enemy(bool barrier, int open_e, const int sol_e[2], bool lt5_e, bool not7) {
     if (open_e != 0) {
-        // [0 - 15]: open_e != 0 (lt5_e, not7, sol_e無視)
-        // barrier(2) * open_e(8) = 16通り
+        // [0 - 15]: open_e != 0 (変更なし)
         int b_bit = barrier ? 8 : 0;
         return (open_e - 1) + b_bit;
     }
     else {
-        // open_e == 0
         if (barrier) {
-            // [16 - 23]: Barrier ON (lt5_e=F, not7=F 固定/無視)
-            // sol_e(8)
-            return 16 + map_sol(sol_e);
+            // [16 - 44]: Barrier ON
+            return 16 + map_sol_array(sol_e);
         }
         else {
-            // Barrier OFF
             if (lt5_e) {
-                // [24]: Lt5 ON (sol_e, not7 無視) ★変更箇所
-                // ここは sol_e を保存せず、単一のIDになります
-                return 24;
+                // [45]: Lt5 ON
+                return 45;
             }
             else {
-                // [25 - 40]: Lt5 OFF
-                // not7(2) * sol_e(8) = 16通り
-                int n7_bit = not7 ? 8 : 0;
-                return 25 + map_sol(sol_e) + n7_bit;
+                // [46 - 103]: Lt5 OFF
+                // sol_e(29) * not7(2) = 58通り
+                int n7_bit = not7 ? SOL_MAX : 0;
+                return 46 + map_sol_array(sol_e) + n7_bit;
             }
         }
     }
 }
 
-void decode_enemy(int val, bool& barrier, int& open_e, int& sol_e, bool& lt5_e, bool& not7) {
-    // 初期化
-    barrier = false; open_e = 0; sol_e = 0; lt5_e = false; not7 = false;
+void decode_enemy(int val, bool& barrier, int& open_e, int sol_e[2], bool& lt5_e, bool& not7) {
+    barrier = false; open_e = 0; sol_e[0] = 0; sol_e[1] = 0; lt5_e = false; not7 = false;
 
     if (val < 16) {
-        // [0-15] Case: Open != 0
         open_e = (val % 8) + 1;
         barrier = (val >= 8);
     }
-    else if (val < 24) {
-        // [16-23] Case: Open=0, Barrier=ON
+    else if (val < 45) {
+        // [16-44]: Open=0, Barrier=ON
         barrier = true;
-        sol_e = unmap_sol(val - 16);
+        unmap_sol_array(val - 16, sol_e);
     }
-    else if (val == 24) {
-        // [24] Case: Open=0, Barrier=OFF, Lt5=ON ★変更箇所
+    else if (val == 45) {
+        // [45]: Open=0, Barrier=OFF, Lt5=ON
         lt5_e = true;
-        // sol_e, not7 は初期値(0, false)のまま
     }
     else {
-        // [25-40] Case: Open=0, Barrier=OFF, Lt5=OFF
-        int temp = val - 25; // オフセットが25になります
-        not7 = (temp >= 8);
-        sol_e = unmap_sol(temp % 8);
+        // [46-103]: Open=0, Barrier=OFF, Lt5=OFF
+        int temp = val - 46;
+        not7 = (temp >= SOL_MAX);
+        unmap_sol_array(temp % SOL_MAX, sol_e);
     }
 }
-
 // ハッシュ化と復元 (Core Logic)
 int get_hash(const State& s) {
     // 1. Trash (Old Opened)
@@ -361,6 +392,67 @@ int trash_and_hand_s(const int i, const int hand[2], const int trash[8]){
   return trash[i] + (hand[0]  == i + 1 ? 1 : 0) + (hand[1]  == i + 1 ? 1 : 0);
 }
 
+State swap_player(const State& s, const int hand){
+  State next_s = s;
+  std::swap(next_s.open_flag_e, next_s.open_flag_s);
+  std::swap(next_s.sol_flag_e, next_s.sol_flag_s);
+  std::swap(next_s.lt5_flag_e, next_s.lt5_flag_s);
+  next_s.hand[0] = hand;
+  next_s.hand[1] = 0;
+  return next_s;
+}
+
+void State::reset_flag(bool to_self) {
+  if(to_self){
+    lt5_flag_s = false;
+    open_flag_s = 0;
+    sol_flag_s[0] = 0;
+    sol_flag_s[1] = 0;
+  } else {
+    lt5_flag_e = false;
+    open_flag_e = 0;
+    sol_flag_e[0] = 0;
+    sol_flag_e[1] = 0;
+  }
+}
+
+State reset_flag_by_use(const State& s, bool to_self, int card){
+  struct State next_s = s;
+  if(to_self){
+    if(s.open_flag_s > 0 && s.open_flag_s == card){
+      next_s.open_flag_s = 0;
+    }
+    if(s.sol_flag_s[0] != 0 && s.sol_flag_s[0] != card){
+      next_s.sol_flag_s[0] = s.sol_flag_e[1];
+      next_s.sol_flag_s[1] = 0;
+    }
+    if(s.sol_flag_s[1] != 0 && s.sol_flag_s[1] != card){
+      next_s.sol_flag_s[1] = 0;
+    }
+    if(s.lt5_flag_s && card < 5){
+      next_s.lt5_flag_s = false;
+    }
+    next_s.not7_flag = false;//対象が7しかないため次のターンに7を出す出さないに関わらず推理がリセット
+
+  } else {
+    if(s.open_flag_e > 0 && s.open_flag_e == card){
+      next_s.open_flag_e = 0;
+    }
+    if(s.sol_flag_e[0] != 0 && s.sol_flag_e[0] != card){
+      next_s.sol_flag_s[0] = s.sol_flag_e[1];
+      next_s.sol_flag_s[1] = 0;
+    }
+    if(s.sol_flag_e[1] != 0 && s.sol_flag_e[1] != card){
+      next_s.sol_flag_e[1] = 0;
+    }
+    if(s.lt5_flag_e && card < 5){
+      next_s.lt5_flag_e = false;
+    }
+    next_s.not7_flag = false;
+  }
+  return next_s;
+}
+
 State State::update_flag_discard(int c) const {
     State s;
 
@@ -368,8 +460,10 @@ State State::update_flag_discard(int c) const {
     s.lt5_flag_e  = this->lt5_flag_s;
     s.open_flag_s = this->open_flag_e;
     s.open_flag_e = this->open_flag_s;
-    s.sol_flag_s  = this->sol_flag_e;
-    s.sol_flag_e  = this->sol_flag_s;
+    s.sol_flag_s[0]  = this->sol_flag_e[0];
+    s.sol_flag_s[1]  = this->sol_flag_e[1];
+    s.sol_flag_e[0]  = this->sol_flag_s[0];
+    s.sol_flag_e[1]  = this->sol_flag_s[1];
 
     s.barrier   = false;
     s.not7_flag = false;
@@ -380,8 +474,12 @@ State State::update_flag_discard(int c) const {
     if(s.open_flag_e > 0 && s.open_flag_e == c){
         s.open_flag_e = 0;
     }
-    if(s.sol_flag_e > 1 && s.sol_flag_e != c){
-        s.sol_flag_e = 0;
+    if(s.sol_flag_e[0] != 0 && s.sol_flag_e[0] != c){
+      s.sol_flag_e[0] = s.sol_flag_e[1];
+      s.sol_flag_e[1] = 0;
+    }
+    if(s.sol_flag_e[1] != 0 && s.sol_flag_e[1] != c){
+      s.sol_flag_e[1] = 0;
     }
     if(s.lt5_flag_e && c < 5){
         s.lt5_flag_e = false;
@@ -394,8 +492,10 @@ State State::update_flag_discard(int c) const {
 
     if(max_num[c-1] <= s.trash[c-1]){
         if(s.open_flag_e == c) s.open_flag_e = 0;
-        if(s.sol_flag_e == c) s.sol_flag_e = 0;
-        if(s.sol_flag_s == c) s.sol_flag_s = 0;
+        if(s.sol_flag_e[0] == c) s.sol_flag_e[0] = 0;
+        if(s.sol_flag_e[1] == c) s.sol_flag_e[1] = 0;
+        if(s.sol_flag_s[0] == c) s.sol_flag_s[0] = 0;
+        if(s.sol_flag_s[1] == c) s.sol_flag_s[1] = 0;
         if(s.open_flag_s == c) s.open_flag_s = 0;
     }
     return s;
@@ -416,7 +516,9 @@ bool State::hand_e(const int i) const {
     }else{
       return false;
     }
-  }else if(sol_flag_e > 1 && sol_flag_e == i + 1){
+  }else if(sol_flag_e[0] > 1 && sol_flag_e[0] == i + 1){
+    return false;
+  }else if(sol_flag_e[1] > 1 && sol_flag_e[1] == i + 1){
     return false;
   }else if(lt5_flag_e && i + 1 >= 5){//前のターンに7を出したときの,5以上
     return false;
@@ -434,7 +536,9 @@ bool State::hand_s(const int i) const {
     }else{
       return false;
     }
-  }else if(sol_flag_s > 1 && sol_flag_s == i + 1){
+  }else if(sol_flag_s[0] > 1 && sol_flag_s[0] == i + 1){
+    return false;
+  }else if(sol_flag_s[1] > 1 && sol_flag_s[1] == i + 1){
     return false;
   }else if(lt5_flag_s && i + 1 >= 5){//前のターンに7を出したときの,5以上
     return false;
@@ -492,6 +596,50 @@ int State::count_deck() const{
     count += deck_or_hand_e(i);
   }
   return count -1;
+}
+
+void State::add_sol_s(int card){
+  if(sol_flag_s[0] == 0){
+    sol_flag_s[0] = card;
+  }else{
+    if(sol_flag_s[0] < card){
+      sol_flag_s[1] = card;
+    } else if(sol_flag_s[0] > card){
+      sol_flag_s[1] = sol_flag_s[0];
+      sol_flag_s[0] = card;
+    }
+  }
+}
+
+void State::add_sol_e(int card){
+  if(sol_flag_e[0] == 0){
+    sol_flag_e[0] = card;
+  }else{
+    if(sol_flag_e[0] < card){
+      sol_flag_e[1] = card;
+    } else if(sol_flag_e[0] > card){
+      sol_flag_e[1] = sol_flag_e[0];
+      sol_flag_e[0] = card;
+    }
+  }
+}
+
+void State::rm_sol_s(int card){
+  if(sol_flag_s[0] == card){
+    sol_flag_s[0] = sol_flag_s[1];
+    sol_flag_s[1] = 0;
+  } else if(sol_flag_s[1] == card){
+    sol_flag_s[1] = 0;
+  }
+}
+
+void State::rm_sol_e(int card){
+  if(sol_flag_e[0] == card){
+    sol_flag_e[0] = sol_flag_e[1];
+    sol_flag_e[1] = 0;
+  } else if(sol_flag_e[1] == card){
+    sol_flag_e[1] = 0;
+  }
 }
 
 void State::last2card(int last[2]) const {

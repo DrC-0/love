@@ -29,6 +29,7 @@ static Rnd_Perfect_Hash rph;
 int infset_cnt[11];
 int win_cnt[11];
 int lose_cnt[11];
+int action_cnt = 0;
 
 #include "rnd_make_infset.hpp"
 #include "bf_position.hpp"
@@ -147,22 +148,23 @@ void infset_iswin(int open[3], bool brp1){
       if(rnd_is_win(open, it->first, true)){
         win_cnt[deck]++;
       }
-      // else if(rnd_is_lose(open, it->first, true)){
-      //   lose_cnt[deck]++;
-      //   if(!bfp.have0(8) && is_lose(bfp).first > 0) check_history.push_back(it->first);
-      // }
+      else if(rnd_is_lose(open, it->first, true)){
+        lose_cnt[deck]++;
+      }
     }
     // cout << "max depth: " << max_depth << endl;
-    cout << "infset count and win count by deck size:" << endl;
+    cout << "infset count by deck size:" << endl;
     for(int i = 0; i < 11; i++) cout << infset_cnt[i] << " ";
     cout << endl;
+    cout << "win count:" << endl;
     for(int i = 0; i < 11; i++) cout << win_cnt[i] << " ";
+    cout << endl;
+    cout << "lose count:" << endl;
+    for(int i = 0; i < 11; i++) cout << lose_cnt[i] << " ";
     cout << endl;
     cout << "win move:" << endl;
     for(int i = 0; i < 11; i++) cout << win_move[i] << " ";
     cout << endl;
-    // for(int i = 0; i < 11; i++) cout << lose_cnt[i] << " ";
-    // cout << endl;
     cout << "win: " << open[0] << open[1] << open[2] << "_" << brp1 << ":" <<
      std::accumulate(std::begin(win_cnt), std::end(win_cnt), 0) << endl;
     cout << "lose: " << open[0] << open[1] << open[2] << "_" << brp1 << ":" <<
