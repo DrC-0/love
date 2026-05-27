@@ -64,7 +64,7 @@ struct bf_position{
         std::copy(hand0, hand0 + 2, this->hand0);
         std::copy(trash, trash + 8, this->trash);
       }
-  bf_position(int open[3], std::string history, bool rnd);
+  bf_position(int open[3], std::string history);
   int deck_or_hand1(int i) const;
   bool hand1(int i) const;
   int open1() const;
@@ -96,9 +96,9 @@ std::string actions_to_string(const std::vector<int>& actions, bool rnd);
 std::string get_actions_history(std::string s, bool rnd);
 void output_actions_history(std::string s, bool rnd);
 int is_terminated_lose(const bf_position& bfp);
-std::pair<int, int> is_lose(const bf_position& bfp);
+std::set<std::pair<int, int>> is_lose(const bf_position& bfp);
 std::pair<int, int> use_lose(const bf_position& bfp, int card);
-std::vector<int> able_actions(const bf_position& bfp, int card, bool rnd, bool is_second_player);
+std::vector<int> able_actions(const bf_position& bfp, int card, bool is_second_player);
 
 int trash_and_hand_s(const int i, const int hand[2], const int trash[8]){
   return trash[i] + (hand[0]  == i + 1 ? 1 : 0) + (hand[1]  == i + 1 ? 1 : 0);
@@ -165,7 +165,7 @@ int count_deck(const int i, const int hand[2], const int trash[8]){
   return count -1;
 }
 
-bf_position::bf_position(int open[3], string history, bool rnd): is_my_turn(false), not7_flag_s(false), not7_flag_e(false),
+bf_position::bf_position(int open[3], string history): is_my_turn(false), not7_flag_s(false), not7_flag_e(false),
       barrier0(false), barrier1(false), lt5_flag_s(false), lt5_flag_e(false), open_flag_s(0),
       open_flag_e(0), sol_flag_s{0, 0}, sol_flag_e{0, 0}, hand0 {0, 0}, trash {0, 0, 0, 0, 0, 0, 0, 0} {
   for(int i = 0; i < 3; i++){
@@ -175,11 +175,7 @@ bf_position::bf_position(int open[3], string history, bool rnd): is_my_turn(fals
   bool is_second_player = false;
   while(head < history.size()){
     string action;
-    if(rnd){
-      action = rph.get_action((unsigned char)history[head]);
-    } else {
-      action = oph.get_action((unsigned char)history[head]);
-    }
+    action = rph.get_action((unsigned char)history[head]);
     int c2a = char_to_action(action[0]); head++;
     int num1 = c2a / 10;
     int num2 = c2a % 10;
@@ -213,10 +209,7 @@ bf_position::bf_position(int open[3], string history, bool rnd): is_my_turn(fals
         barrier0 = false;
         *this = reset_flag_by_use(*this, true, num2 + 1);
 
-        if(!rnd && num2 + 1 == 1 && !barrier1){//ランダム宣言でない場合のみ
-          int c2t = char_to_twonum(action[1]);
-          add_sol_e((c2t % 10) + 1);
-        }else if(num2 + 1 == 2 && !barrier1){
+        if(num2 + 1 == 2 && !barrier1){
           int c2t = char_to_twonum(action[1]);
           open_flag_e = (c2t % 10) + 1;
         } else if(num2 + 1 == 3 && !barrier1){
@@ -1106,39 +1099,44 @@ int is_terminated_lose(const bf_position& bfp){
 
 //<使うカード, 敗北するまでのターン数>を返す。敗北しない場合は<0, 0>
 //ルール上すでに敗北の場合9, 魔術師の使用による敗北で,対象自分のみなら15,対象相手のみなら25
-std::pair<int, int> is_lose(const bf_position& bfp) {
+std::set<std::pair<int, int>> is_lose(const bf_position& bfp) {
+  if(bfp.hand0[1] <= 0) return {};
   // --- 自分のターンの場合 ---
-  if(bfp.hand0[1] > 0){
-    int t = is_terminated_lose(bfp);
-    if(t == 1){
-      return {0, 0};
-    } else if(t == -1){
-      if(bfp.count_deck() < 2){
-        if(bfp.hand_e_min() > bfp.hand_s_max()) return {9, 0};
-        return {bfp.hand_e_min(), 0};
-      }
-      return {9, 0};
+  int t = is_terminated_lose(bfp);
+  if(t == 1){
+    return {};
+  } else if(t == -1){
+    if(bfp.count_deck() < 2){
+      if(bfp.hand_e_min() > bfp.hand_s_max()) return {{9, 0}};
+      return {{bfp.hand_e_min(), 0}};
     }
-
-    //もともと省かれているため意味なし
-    if(bfp.have0(8)) return {8, 1};
-
-    // use_lose は std::pair<bool, int> を返す
-    auto res0 = use_lose(bfp, bfp.hand0[0]);
-    auto res1 = use_lose(bfp, bfp.hand0[1]);
-
-    if(res0.first == 1 && res1.first == 1){
-      if(res0.second > res1.second) return {bfp.hand0[0], res0.second};
-      else return {bfp.hand0[1], res1.second};
-    }else if(res0.first == 1) return {bfp.hand0[0], res0.second};
-    else if(res1.first == 1) return {bfp.hand0[1], res1.second};
-    //魔術師の使用で敗北する場合5, 自分に対してのみ敗北の場合15, 相手に対してのみ敗北の場合25
-    else if(res0.first == 2 || res1.first == 2) return {15, std::max(res0.second, res1.second)};
-    else if(res0.first == 3 || res1.first == 3) return {25, std::max(res0.second, res1.second)};
-    return {0, 0};
+    return {{9, 0}};
   }
 
-  return {0, 0};
+  //もともと省かれているため意味なし
+  if(bfp.have0(8)) return {{8, 1}};
+
+  std::set<std::pair<int, int>> res;
+  // use_lose は std::pair<bool, int> を返す
+
+  auto res0 = use_lose(bfp, bfp.hand0[0]);
+  auto res1 = use_lose(bfp, bfp.hand0[1]);
+
+  if(res0.first == 1) res.insert({bfp.hand0[0], res0.second});
+  if(res1.first == 1) res.insert({bfp.hand0[1], res1.second});
+  if(res0.first == 2) res.insert({15, res0.second});
+  if(res1.first == 2) res.insert({15, res1.second});
+  if(res0.first == 3) res.insert({25, res0.second});
+  if(res1.first == 3) res.insert({25, res1.second});
+  if(res0.first == 4){
+    res.insert({15, res0.second/100});
+    res.insert({25, res0.second%100});
+  }
+  if(res1.first == 4){
+    res.insert({15, res1.second/100});
+    res.insert({25, res1.second%100});
+  }
+  return res;
 }
 
 std::pair<int, int> use_lose(const bf_position& bfp, int card) {
@@ -1261,8 +1259,8 @@ std::pair<int, int> use_lose(const bf_position& bfp, int card) {
     auto res_self = eval_preds(preds_toself);
     std::vector<bf_position> preds_toenemy = ef_wizard(next_bfp, false);
     auto res_enemy = eval_preds(preds_toenemy);
-    //5の使用で負ける場合1, 自分への使用のみの場合2, 相手への使用のみの場合3, どちらも負けない場合0
-    if(res_self.first && res_enemy.first) return {1, std::max(res_self.second, res_enemy.second)};
+    //5の使用で負ける場合4, 自分への使用のみの場合2, 相手への使用のみの場合3, どちらも負けない場合0
+    if(res_self.first && res_enemy.first) return {4, std::max(res_self.second, res_enemy.second)};
     else if(res_self.first) return {2, res_self.second};
     else if(res_enemy.first) return {3, res_enemy.second};
     else return {0, 0};
@@ -1297,33 +1295,27 @@ std::pair<int, int> use_lose(const bf_position& bfp, int card) {
   return {0, 0};
 }
 
-std::vector<int> able_actions(const bf_position& bfp, int card, bool rnd, bool is_second_player) {
+std::vector<int> able_actions(const bf_position& bfp, int card, bool is_second_player) {
   int base = 40 + card - 1;
   std::vector<int> actions;
 
-  if (card % 10 == 5) {
-    // --- 自分を対象とする場合 ---
-    if(card != 25){//card == (5 or 15)
-      for (int j = 0; j < 8; j++)
-        if(bfp.deck(j)) actions.push_back(base * 1000 + is_second_player * 100 + (bfp.other_hand0(card) - 1) * 10 + j);
-    }
-    // --- 相手を対象とする場合 ---
-    if(card != 15){//card == (5 or 25)
-      if (!bfp.barrier1) {
-        for (int i = 0; i < 8; i++) {
-          if (bfp.hand1(i)) { // 相手が捨てさせられるカード
-            actions.push_back(base * 1000 + !is_second_player * 100 + i * 10 + 0);
-          }
+  // --- 自分を対象とする場合 ---
+  if(card == 15){
+    for (int j = 0; j < 8; j++)
+      if(bfp.deck(j)) actions.push_back(base * 1000 + is_second_player * 100 + (bfp.other_hand0(card) - 1) * 10 + j);
+  }
+  // --- 相手を対象とする場合 ---
+  else if(card == 25){
+    if (!bfp.barrier1) {
+      for (int i = 0; i < 8; i++) {
+        if (bfp.hand1(i)) { // 相手が捨てさせられるカード
+          actions.push_back(base * 1000 + !is_second_player * 100 + i * 10 + 0);
         }
-      } else actions.push_back(base * 1000 + !is_second_player * 100);
-    }
+      }
+    } else actions.push_back(base * 1000 + !is_second_player * 100);
   }
-  else if (card == 4 || card == 7 || bfp.barrier1 || (card == 1 && rnd)) {
+  else if (card == 4 || card == 7 || bfp.barrier1 || card == 1) {
     actions.push_back(base);
-  }
-  else if ((card == 1 && !rnd)) {
-    for (int i = 1; i < 8; i++)
-      if (bfp.hand1(i)) actions.push_back(base * 10 + i);
   }
   else if (card == 2) {
     // 相手の判明するカード
@@ -1344,4 +1336,23 @@ std::vector<int> able_actions(const bf_position& bfp, int card, bool rnd, bool i
   return actions;
 }
 
+int action_count(const int hand[2]) {
+  // 値に応じた加算量を返すラムダ関数
+  auto get_score = [](int val) {
+    if (val == 1 || val == 2 || val == 3 || val == 4 || val == 6 || val == 7) {
+      return 1;
+    }
+    if (val == 5) {
+      return 2;
+    }
+    return 0; // 条件にない値（0や8など）の場合
+  };
+
+  // 同値なら片方だけ、異なるなら両方を足す
+  if (hand[0] == hand[1]) {
+    return get_score(hand[0]);
+  } else {
+    return get_score(hand[0]) + get_score(hand[1]);
+  }
+}
 #endif
