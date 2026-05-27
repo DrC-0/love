@@ -11,3 +11,4 @@ win
 end
 test
 test.cpp
+credentials.json

@@ -1296,7 +1296,7 @@ std::pair<int, int> use_lose(const bf_position& bfp, int card) {
 }
 
 std::vector<int> able_actions(const bf_position& bfp, int card, bool is_second_player) {
-  int base = 40 + card - 1;
+  int base = 40 + card % 10 - 1;
   std::vector<int> actions;
 
   // --- 自分を対象とする場合 ---
@@ -1307,7 +1307,7 @@ std::vector<int> able_actions(const bf_position& bfp, int card, bool is_second_p
   // --- 相手を対象とする場合 ---
   else if(card == 25){
     if (!bfp.barrier1) {
-      for (int i = 0; i < 8; i++) {
+      for (int i = 0; i < 7; i++) {
         if (bfp.hand1(i)) { // 相手が捨てさせられるカード
           actions.push_back(base * 1000 + !is_second_player * 100 + i * 10 + 0);
         }
