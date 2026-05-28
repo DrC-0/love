@@ -102,8 +102,6 @@ void infset_iswin(int open[3]){
     action_cnt += action_count(bfp.hand0);
     cnt_abs(open, it->first);
   }
-  assert(std::accumulate(win_move, win_move + 11, 0) == table_infset.size());
-  assert(std::accumulate(lose_move, lose_move + 11, 0) == action_cnt);
   cout << "infset size:" << table_infset.size() << endl;
   cout << "win move:" << endl;
   for(int i = 0; i < 11; i++) cout << win_move[i] << " ";
@@ -114,6 +112,9 @@ void infset_iswin(int open[3]){
   cout << endl;
   cout << "hist count: "  << abs_history.size() << endl;
   cout << "max win history: " << hist_max << "turn " << get_actions_history(max_history, true) << endl;
+
+  assert(std::accumulate(win_move, win_move + 11, 0) == table_infset.size());
+  assert(std::accumulate(lose_move, lose_move + 11, 0) == action_cnt);
 
   // 必勝判定・必敗判定を導入した際にめぐる必要のあるinfsetの数をカウント
   int infset_cnt[4] = {0, 0, 0, 0};

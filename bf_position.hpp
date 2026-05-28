@@ -235,6 +235,8 @@ bf_position::bf_position(int open[3], string history): is_my_turn(false), not7_f
         } else if(num2 + 1 == 6 && !barrier1){
           int c2t = char_to_twonum(action[1]);
           hand0[0] = (c2t % 10) + 1;
+          reset_flag(true);//自分のフラグリセット
+          reset_flag(false);//相手のフラグリセット
           open_flag_s = (c2t % 10) + 1;
           open_flag_e = (c2t / 10) + 1;
         } else if(num2 + 1 == 7){
@@ -932,8 +934,8 @@ std::vector<bf_position> ef_wizard(const bf_position& bfp, bool to_0p){
 void bf_position::print() const{
   // cout << "depth : " << depth << endl;
   cout << "barrier0 : " << barrier0 << " barrier1 : " << barrier1 << " is_my_turn : " << is_my_turn << endl;
-  cout << "open_flag_e : " << open_flag_e << " sol_flag_e : " << sol_flag_e << " lt5_flag_e : " << lt5_flag_e << " not7_flag_e : " << not7_flag_e << endl;
-  cout << "open_flag_s : " << open_flag_s << " sol_flag_s : " << sol_flag_s << " lt5_flag_s : " << lt5_flag_s << " not7_flag_s : " << not7_flag_s << endl;
+  cout << "open_flag_e : " << open_flag_e << " sol_flag_e : " << sol_flag_e[0] << " " << sol_flag_e[1] << " lt5_flag_e : " << lt5_flag_e << " not7_flag_e : " << not7_flag_e << endl;
+  cout << "open_flag_s : " << open_flag_s << " sol_flag_s : " << sol_flag_s[0] << " " << sol_flag_s[1] << " lt5_flag_s : " << lt5_flag_s << " not7_flag_s : " << not7_flag_s << endl;
   cout << "hand0 : " << hand0[0] << " " << hand0[1] << " ";
   cout << "trash:";
   for(int i = 0; i < 8; i++){

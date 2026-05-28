@@ -60,14 +60,14 @@ void check_actionfile_history(int open[3]) {
         }
 
         if (!actions.empty()) {
-            struct bf_position bfp(open, actions_to_string(actions, true), true);
-            if(is_lose(bfp).second){
-                for(auto x : actions)
-                    cout << x << " ";
-                cout << endl;
-                bfp.print();
-                // cout << "is lose:" << is_lose(bfp) << endl << endl;
-            }
+            // struct bf_position bfp(open, actions_to_string(actions, true));
+            // if(is_lose(bfp).second){
+            //     for(auto x : actions)
+            //         cout << x << " ";
+            //     cout << endl;
+            //     bfp.print();
+            //     cout << "is lose:" << is_lose(bfp) << endl << endl;
+            // }
         }
     }
     // 8. ファイルストリームを閉じる
@@ -91,7 +91,7 @@ void check_file_history(const std::string& filename, int open[3]) {
         line_number++;
 
         // 3. オブジェクトの生成
-        bf_position bfp(open, history_line, true);
+        bf_position bfp(open, history_line);
 
         // 4. 指定された条件をチェック
         std::cout << "(行: " << line_number << "):" << std::endl;
@@ -106,7 +106,7 @@ void check_file_history(const std::string& filename, int open[3]) {
 
 void check_allhistory(int open[3]) {
 //   std::vector<int> all_actions = {27, 40, 35, 4573, 43, 30};
-  std::vector<int> all_actions = {24, 44010, 30, 44100, 40, 30, 40, 420, 31, 40, 40, 36, 46};
+  std::vector<int> all_actions = {10, 32, 420, 420, 34, 40, 40, 30, 40, 46, 35, 4540, 44003, 30};
   long unsigned int i = 0;
   std::vector<int> actions;
   while(i < all_actions.size()){
@@ -114,10 +114,11 @@ void check_allhistory(int open[3]) {
     for(auto x : actions)
         cout << x << " ";
     cout << endl;
-    struct bf_position bfp(open, actions_to_string(actions, true), true);
+    struct bf_position bfp(open, actions_to_string(actions, true));
     bfp.print();
     // cout << "is win:" << is_win(bfp) << endl << endl;
-    cout << "is lose:" << is_lose(bfp).second << endl << endl;
+    auto lose_actions = is_lose(bfp);
+    // cout << "is lose:" << lose_actions[0].second << endl << endl;
     i++;
   }
 }
@@ -149,7 +150,7 @@ void check_history(int open[3]) {
     for(auto x : actions)
         cout << x << " ";
     cout << endl;
-    struct bf_position bfp(open, actions_to_string(actions, true), true);
+    struct bf_position bfp(open, actions_to_string(actions, true));
     bfp.print();
     auto res = is_win(bfp);
     cout << "is win:" << res.first << endl;
@@ -160,11 +161,11 @@ void check_history(int open[3]) {
 int main() {
     // const std::string filename = "check557.txt";
     // int open[3] = {4,4,6};
-    int open[3] = {5,5,7};
+    int open[3] = {2,2,4};
     // check_file_history(filename, open);
     // check_actionfile_history(open);
-    // check_allhistory(open);
-    check_history(open);
+    check_allhistory(open);
+    // check_history(open);
     // compare_history(open);
     return 0;
 }
