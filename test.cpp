@@ -106,7 +106,7 @@ void check_file_history(const std::string& filename, int open[3]) {
 
 void check_allhistory(int open[3]) {
 //   std::vector<int> all_actions = {27, 40, 35, 4573, 43, 30};
-  std::vector<int> all_actions = {10, 32, 420, 420, 34, 40, 40, 30, 40, 46, 35, 4540, 44003, 30};
+  std::vector<int> all_actions = {10, 34, 40, 40, 30, 40, 46, 30, 40, 4542, 31, 414, 44021, 30};
   long unsigned int i = 0;
   std::vector<int> actions;
   while(i < all_actions.size()){
@@ -161,7 +161,7 @@ void check_history(int open[3]) {
 int main() {
     // const std::string filename = "check557.txt";
     // int open[3] = {4,4,6};
-    int open[3] = {2,2,4};
+    int open[3] = {3,4,4};
     // check_file_history(filename, open);
     // check_actionfile_history(open);
     check_allhistory(open);

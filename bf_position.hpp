@@ -235,8 +235,8 @@ bf_position::bf_position(int open[3], string history): is_my_turn(false), not7_f
         } else if(num2 + 1 == 6 && !barrier1){
           int c2t = char_to_twonum(action[1]);
           hand0[0] = (c2t % 10) + 1;
-          reset_flag(true);//自分のフラグリセット
-          reset_flag(false);//相手のフラグリセット
+          reset_flag(true);
+          reset_flag(false);
           open_flag_s = (c2t % 10) + 1;
           open_flag_e = (c2t / 10) + 1;
         } else if(num2 + 1 == 7){
@@ -276,6 +276,8 @@ bf_position::bf_position(int open[3], string history): is_my_turn(false), not7_f
         }else if(num2 + 1 == 6 && !barrier0){
           int c2t = char_to_twonum(action[1]);
           hand0[0] = (c2t % 10) + 1;
+          reset_flag(true);
+          reset_flag(false);
           open_flag_s = (c2t % 10) + 1;
           open_flag_e = (c2t / 10) + 1;
         }
@@ -636,6 +638,8 @@ std::pair<bool, int> use_win(const bf_position& bfp, int card){
 
     return {has_true, has_true ? global_min_t + 1 : 0};
   }else if(card == 6){
+    next_bfp.reset_flag(true);
+    next_bfp.reset_flag(false);
     next_bfp.open_flag_e = bfp.other_hand0(card);
     bool all_true = true;
     int max_f = -1;
@@ -765,6 +769,8 @@ std::pair<bool, int> enemy_turn_win(const bf_position& bfp) {
             if(next_bfp.hand1(j)){
               struct bf_position next_bfp2 = next_bfp;
               next_bfp2.hand0[0] = j + 1;
+              next_bfp2.reset_flag(true);
+              next_bfp2.reset_flag(false);
               next_bfp2.open_flag_e = bfp.hand0[0];
               auto res = draw_win(next_bfp2);
               if(res.first) gene_max_f = std::max(gene_max_f, res.second);
