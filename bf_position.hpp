@@ -1333,7 +1333,7 @@ std::vector<int> able_actions(const bf_position& bfp, int card, bool is_second_p
   else if (card == 3) {
     // 相手の判明するカード
     int other_i = bfp.other_hand0(card) - 1;
-    if (bfp.hand1(other_i)) actions.push_back(base * 10 + other_i);
+    if (bfp.hand1(other_i)) actions.push_back(base * 100 + other_i*11);
   }
   else if (card == 6) {
     // 相手と交換するカード

@@ -13,6 +13,7 @@
 #include "rnd_action.hpp"
 #include "org_action_sequense.hpp"
 #include "loveletter.hpp"
+#include "save_load_abshistory.hpp"
 
 extern int char_to_action(char c);
 
@@ -57,11 +58,12 @@ void cnt_abs(int open[3], string history){
   }else win_move[0]++;
 
   auto lose_actions = is_lose(bfp);
-  int able_act = action_count(bfp.hand0)- lose_actions.size();
+  int act_cnt = action_count(bfp.hand0);
+  int able_act = act_cnt - lose_actions.size();
   lose_move[0] += able_act ;
+  if(able_act == 1 && act_cnt > 1) only_history.insert(history);
   for(const auto& lose_action : lose_actions){
     lose_move[lose_action.second]++;
-    if(able_act == 1) only_history.insert(history);
 
     if (lose_action.second == 9) {
       output_actions_history(history, true);
@@ -71,8 +73,8 @@ void cnt_abs(int open[3], string history){
       string action;
       action = rph.get_action((unsigned char)history[0]);
 
-      int first = char_to_action(action[0]) / 10;
-      auto actions = able_actions(bfp, lose_action.first, first == 2);
+      int firstp = char_to_action(action[0]) / 10;
+      auto actions = able_actions(bfp, lose_action.first, firstp == 2);
 
       for (int act : actions) {
         string new_hist = history + string(1, action2char(act, true));
@@ -102,19 +104,18 @@ void infset_iswin(int open[3]){
     action_cnt += action_count(bfp.hand0);
     cnt_abs(open, it->first);
   }
-  cout << "infset size:" << table_infset.size() << endl;
-  cout << "win move:" << endl;
-  for(int i = 0; i < 11; i++) cout << win_move[i] << " ";
-  cout << endl;
-  cout << "action count: " << action_cnt << endl;
-  cout << "lose move:" << endl;
-  for(int i = 0; i < 11; i++) cout << lose_move[i] << " ";
-  cout << endl;
-  cout << "hist count: "  << abs_history.size() << endl;
-  cout << "max win history: " << hist_max << "turn " << get_actions_history(max_history, true) << endl;
 
   assert(std::accumulate(win_move, win_move + 11, 0) == table_infset.size());
   assert(std::accumulate(lose_move, lose_move + 11, 0) == action_cnt);
+
+  cout << "win move:" << endl;
+  for(int i = 0; i < 11; i++) cout << win_move[i] << " ";
+  cout << endl;
+  cout << "lose move:" << endl;
+  for(int i = 0; i < 11; i++) cout << lose_move[i] << " ";
+  cout << endl;
+  // cout << "hist count: "  << abs_history.size() << endl;
+  // cout << "max win history: " << hist_max << "turn " << get_actions_history(max_history, true) << endl;
 
   // 必勝判定・必敗判定を導入した際にめぐる必要のあるinfsetの数をカウント
   int infset_cnt[4] = {0, 0, 0, 0};
@@ -129,12 +130,10 @@ void infset_iswin(int open[3]){
         else rm_bylose = true;
       }
     }
-
     // 必敗の行動があり、行動が一つ(以下)の場合
     if(!rm_bywin && !rm_bylose && only_history.contains(it->first)){
       rm_bylose = true;
     }
-
     infset_cnt[0]++;
     if(!rm_bywin) infset_cnt[1]++;
     if(!rm_bylose) infset_cnt[2]++;
@@ -144,6 +143,8 @@ void infset_iswin(int open[3]){
   cout << "infset size by win/lose:" << endl;
   for(int i = 0; i < 4; i++) cout << infset_cnt[i] << " ";
   cout << endl;
+  string filename = "abs" + to_string(open[0] * 100 + open[1] * 10 + open[2]) + ".bin";
+  save_bin_abs(filename, abs_history, only_history);
 }
 
 int main(int argc, char *argv[]){

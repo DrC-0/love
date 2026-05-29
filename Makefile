@@ -27,7 +27,7 @@ brrnd: br_rnd.cpp $(COMMON_SRCS) $(COMMON_HDRS)
 brorg: br.cpp all_elements.hpp infset_dfs.hpp $(COMMON_SRCS) $(COMMON_HDRS)
 	g++ -std=c++20 -Wall -O2 $(COMMON_DEFS) -DBEST_RESPONSE $(COMMON_SRCS) br.cpp -o $@
 
-win: infset_iswin.cpp $(COMMON_SRCS) $(COMMON_HDRS)
+win: infset_iswin.cpp save_load_abshistory.hpp $(COMMON_SRCS) $(COMMON_HDRS)
 	g++ -std=c++20 -Wall -O2 $(COMMON_DEFS) -DBEST_RESPONSE $(COMMON_SRCS) infset_iswin.cpp -o $@
 
 # --- その他 ---
