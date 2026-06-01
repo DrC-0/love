@@ -28,10 +28,13 @@ brorg: br.cpp all_elements.hpp infset_dfs.hpp $(COMMON_SRCS) $(COMMON_HDRS)
 	g++ -std=c++20 -Wall -O2 $(COMMON_DEFS) -DBEST_RESPONSE $(COMMON_SRCS) br.cpp -o $@
 
 win: infset_iswin.cpp save_load_abshistory.hpp $(COMMON_SRCS) $(COMMON_HDRS)
-	g++ -std=c++20 -Wall -O2 $(COMMON_DEFS) -DBEST_RESPONSE $(COMMON_SRCS) infset_iswin.cpp -o $@
+	g++ -std=c++20 -Wall -O2 $(COMMON_DEFS)  $(COMMON_SRCS) infset_iswin.cpp -o $@
+
+
+comp: compare_abscfr.cpp save_load_abshistory.hpp $(COMMON_SRCS) $(COMMON_HDRS)
+	g++ -std=c++20 -Wall -O2 $(COMMON_DEFS)  $(COMMON_SRCS) compare_abscfr.cpp -o $@
 
 # --- その他 ---
-
 test: test.cpp log_util.hpp bf_position.hpp endgame.hpp
 	g++ -std=c++20 -Wall -O2 test.cpp -o $@
 

@@ -84,7 +84,7 @@ struct bf_position{
 } ;
 
 bf_position reset_flag_by_use(const bf_position& bfp, bool is_self, int card);
-std::pair<bool, int> is_win(const bf_position& bfp);
+std::pair<int, int> is_win(const bf_position& bfp);
 std::pair<int, int> is_terminated_win(const bf_position& bfp);
 std::pair<bool, int> use_win(const bf_position& bfp, int card);
 std::pair<bool, int> draw_win(const bf_position& bfp);
@@ -464,67 +464,67 @@ bf_position reset_flag_by_use(const bf_position& bfp, bool to_self, int card){
 
 std::pair<int, int> is_terminated_win(const bf_position& bfp){
   if(bfp.have0(7) && bfp.hand0[0] + bfp.hand0[1] >= 12){
-    return {-1, 0};
+    return {0, 0};
   }
   if(bfp.count_deck() < 2 && bfp.hand0[1] == 0){
     int max = bfp.hand_e_max();
     // if(max == 0) {cout << "Error: max card is 0" << endl; bfp.print(); exit(1);}
-    if(max < bfp.hand0[0]) return {1, 0};
-    else return {-1, 1};
+    if(max < bfp.hand0[0]) return {max, 1};
+    else return {0, 0};
   }
   if(!bfp.barrier1 && bfp.hand0[1] > 0){
     if(bfp.have0(1) && bfp.open1() > 1){
       return {1, 1};
     }
     if(bfp.have0(3) && bfp.hand_e_max() < bfp.other_hand0(3)){
-      return {1, 1};
+      return {3, 1};
     }
     if(bfp.have0(5) && bfp.open1() == 8){
-      return {1, 1};
+      return {5, 1};
     }
-  }
-  if(bfp.open_flag_e == 7 && bfp.deck_or_hand_e_min() >= 5 && !bfp.is_my_turn){
-    return {1, 0};
   }
   return {0, 0};
 }
 
-std::pair<bool, int> is_win(const bf_position& bfp) {
+std::pair<int, int> is_win(const bf_position& bfp) {
   auto t = is_terminated_win(bfp);
-  if(t.first != 0){
-    return {t.first == 1, t.second};
-  }
+  if(t.first != 0) return t;
 
-  std::pair<bool, int> res;
+  std::pair<int, int> res;
 
-  if(bfp.is_my_turn){
-    // 手札が1枚の場合（ドローから開始）
-    if(bfp.hand0[1] == 0){
-      res = draw_win(bfp);
+  if(bfp.is_my_turn && bfp.hand0[1] != 0){
+    // 手札が2枚あり、両方同じカードの場合（片方だけ評価して無駄を省く）
+    if(bfp.hand0[0] == bfp.hand0[1]){
+      res = use_win(bfp, bfp.hand0[0]);
     }
+    // 手札が2枚あり、違うカードの場合（ORノードの評価）
     else {
-      // 手札が2枚あり、両方同じカードの場合（片方だけ評価して無駄を省く）
-      if(bfp.hand0[0] == bfp.hand0[1]){
-        res = use_win(bfp, bfp.hand0[0]);
-      }
-      // 手札が2枚あり、違うカードの場合（ORノードの評価）
-      else {
-        auto res0 = use_win(bfp, bfp.hand0[0]);
-        auto res1 = use_win(bfp, bfp.hand0[1]);
+      auto res0 = use_win(bfp, bfp.hand0[0]);
+      auto res1 = use_win(bfp, bfp.hand0[1]);
 
-        res.first = res0.first || res1.first;
-        res.second = 1e9;
-        if(res0.first) res.second = std::min(res.second, res0.second);
-        if(res1.first) res.second = std::min(res.second, res1.second);
+      if(res0.first && res1.first){
+        if(res0.second < res1.second){
+          res.first = bfp.hand0[0];
+          res.second = res0.second + 1;
+        } else {
+          res.first = bfp.hand0[1];
+          res.second = res1.second + 1;
+        }
+      } else if(res0.first){
+        res.first = bfp.hand0[0];
+        res.second = res0.second + 1;
+      } else if(res1.first){
+        res.first = bfp.hand0[1];
+        res.second = res1.second + 1;
+      } else {
+        res.first = false;
+        res.second = 0;
       }
     }
+    return res;
   }
   // 相手ターンの場合
-  else {
-    res = enemy_turn_win(bfp);
-  }
-
-  return res;
+  else return {0, 0};
 }
 
 std::pair<bool, int> use_win(const bf_position& bfp, int card){
@@ -534,9 +534,9 @@ std::pair<bool, int> use_win(const bf_position& bfp, int card){
   }
 
   if(card == 3 && !bfp.barrier0 && bfp.hand_e_min() > bfp.other_hand0(3)){
-    return {false, 1};
+    return {false, 0};
   }
-  if(card == 8) return {false, 1};
+  if(card == 8) return {false, 0};
   if(commentablebfp) cout << bfp.count_deck() << "use :" << card << endl;
 
   struct bf_position next_bfp = bfp;
@@ -558,7 +558,7 @@ std::pair<bool, int> use_win(const bf_position& bfp, int card){
 
   if(bfp.barrier1 && card != 4 && card != 5 && card != 7){
     auto res = enemy_turn_win(next_bfp);
-    return {res.first, res.second + 1};
+    return {res.first, res.first ? res.second + 1 : 0};
   }
   else if(card == 1){
     bool has_true = false;
@@ -608,7 +608,7 @@ std::pair<bool, int> use_win(const bf_position& bfp, int card){
   }else if(card == 4){
     next_bfp.barrier0 = true;
     auto res = enemy_turn_win(next_bfp);
-    return {res.first, res.second + 1};
+    return {res.first, res.first ? res.second + 1 : 0};
   }else if(card == 5){
     std::vector<bf_position> preds_toself = ef_wizard(next_bfp, true);
     if (preds_toself.empty()) return {false, 0};
@@ -662,7 +662,7 @@ std::pair<bool, int> use_win(const bf_position& bfp, int card){
   }else if(card == 7){
     // next_bfp.lt5_flag_s = true;//自分のフラグは不要
     auto res = enemy_turn_win(next_bfp);
-    return {res.first, res.second + 1};
+    return {res.first, res.first ? res.second + 1 : 0};
   }else return {false, 0};
 }
 

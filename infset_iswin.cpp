@@ -47,7 +47,7 @@ void cnt_abs(int open[3], string history){
   bf_position bfp(open, history);
   auto res_win = is_win(bfp);
 
-  if (res_win.first) {
+  if (res_win.first > 0) {
     win_move[res_win.second]++;
     abs_history.insert({history, true});
 
