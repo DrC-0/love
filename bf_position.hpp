@@ -469,7 +469,7 @@ std::pair<int, int> is_terminated_win(const bf_position& bfp){
   if(bfp.count_deck() < 2 && bfp.hand0[1] == 0){
     int max = bfp.hand_e_max();
     // if(max == 0) {cout << "Error: max card is 0" << endl; bfp.print(); exit(1);}
-    if(max < bfp.hand0[0]) return {max, 1};
+    if(max < bfp.hand0[0]) return {bfp.hand0[0], 0};
     else return {0, 0};
   }
   if(!bfp.barrier1 && bfp.hand0[1] > 0){
@@ -483,12 +483,12 @@ std::pair<int, int> is_terminated_win(const bf_position& bfp){
       return {5, 1};
     }
   }
-  return {0, 0};
+  return {-1, 0};
 }
 
 std::pair<int, int> is_win(const bf_position& bfp) {
   auto t = is_terminated_win(bfp);
-  if(t.first != 0) return t;
+  if(t.first != -1) return t;
 
   std::pair<int, int> res;
 
@@ -501,23 +501,22 @@ std::pair<int, int> is_win(const bf_position& bfp) {
     else {
       auto res0 = use_win(bfp, bfp.hand0[0]);
       auto res1 = use_win(bfp, bfp.hand0[1]);
-
       if(res0.first && res1.first){
         if(res0.second < res1.second){
           res.first = bfp.hand0[0];
-          res.second = res0.second + 1;
+          res.second = res0.second;
         } else {
           res.first = bfp.hand0[1];
-          res.second = res1.second + 1;
+          res.second = res1.second;
         }
       } else if(res0.first){
         res.first = bfp.hand0[0];
-        res.second = res0.second + 1;
+        res.second = res0.second;
       } else if(res1.first){
         res.first = bfp.hand0[1];
-        res.second = res1.second + 1;
+        res.second = res1.second;
       } else {
-        res.first = false;
+        res.first = 0;
         res.second = 0;
       }
     }
@@ -529,9 +528,7 @@ std::pair<int, int> is_win(const bf_position& bfp) {
 
 std::pair<bool, int> use_win(const bf_position& bfp, int card){
   auto t = is_terminated_win(bfp);
-  if(t.first != 0){
-    return {t.first == 1, t.second};
-  }
+  if(t.first != -1) return t;
 
   if(card == 3 && !bfp.barrier0 && bfp.hand_e_min() > bfp.other_hand0(3)){
     return {false, 0};
@@ -668,9 +665,7 @@ std::pair<bool, int> use_win(const bf_position& bfp, int card){
 
 std::pair<bool, int> enemy_turn_win(const bf_position& bfp) {
   auto t = is_terminated_win(bfp);
-  if(t.first != 0){
-    return {t.first == 1, t.second};
-  }
+  if(t.first != -1) return t;
 
   bool all_true = true;
   int max_f = -1;
@@ -678,11 +673,10 @@ std::pair<bool, int> enemy_turn_win(const bf_position& bfp) {
   for(int i = 0; i < 7; i++){
     if(!all_true) break;
     if(bfp.deck_or_hand1(i) > 0){
-      if(commentablebfp) cout << bfp.count_deck() << "enemy :" << i + 1 << endl;
+      if(commentablebfp) cout << bfp.count_deck() - 1 << "enemy :" << i + 1 << endl;
       // 1. カード効果による即時敗北（深さ0の敗北として扱う）
       if(i + 1 == 1 && !bfp.barrier0 && bfp.hand0[0] > 1){
         all_true = false;
-        max_f = std::max(max_f, 1);
         continue;
       }
 
@@ -700,14 +694,12 @@ std::pair<bool, int> enemy_turn_win(const bf_position& bfp) {
         }
         if(immediate_loss){
           all_true = false;
-          max_f = std::max(max_f, 1);
           continue;
         }
       }
 
       if(i + 1 == 5 && bfp.hand0[0] == 8 && !bfp.barrier0) {
         all_true = false;
-        max_f = std::max(max_f, 1);
         continue;
       }
 
@@ -777,6 +769,8 @@ std::pair<bool, int> enemy_turn_win(const bf_position& bfp) {
               else gene_all_true = false;
             }
           }
+          if(gene_all_true && gene_max_f != -1) max_f = std::max(max_f, gene_max_f);
+          else all_true = false;
         } else {
           next_bfp.not7_flag_e = true;
           auto res = draw_win(next_bfp);
@@ -806,9 +800,7 @@ std::pair<bool, int> enemy_turn_win(const bf_position& bfp) {
 
 std::pair<bool, int> draw_win(const bf_position& bfp) {
   auto t = is_terminated_win(bfp);
-  if(t.first != 0){
-    return {t.first == 1, t.second};
-  }
+  if(t.first != -1) return t;
 
   bool all_true = true;
   int max_f = -1;
@@ -816,21 +808,20 @@ std::pair<bool, int> draw_win(const bf_position& bfp) {
   for(int i = 0; i < 8; i++){
     if(!all_true) break;
     if(bfp.deck(i)){
-      bf_position bfp_h0 = draw(bfp, i + 1);
-      bfp_h0.barrier0 = false;
-      bfp_h0.is_my_turn = !bfp.is_my_turn;
-      bf_position bfp_h1 = bfp_h0;
-      if(commentablebfp) cout << bfp.count_deck() << "draw " << i + 1 << endl;
+      bf_position next_bfp = draw(bfp, i + 1);
+      next_bfp.barrier0 = false;
+      next_bfp.is_my_turn = !next_bfp.is_my_turn;
+      if(commentablebfp) cout << next_bfp.count_deck() << "draw " << i + 1 << endl;
 
       // --- 自分の手札の選択 (ORノード) ---
-      auto res0 = use_win(bfp_h0, bfp_h0.hand0[0]);
+      auto res0 = use_win(next_bfp, next_bfp.hand0[0]);
 
       bool or_first = false;
-      int or_second = 0;
+      int or_second = -1;
 
       // 手札の2枚が違うカードなら、もう一方も評価する
-      if (bfp.hand0[0] != i + 1) {
-        auto res1 = use_win(bfp_h1, bfp_h1.hand0[1]);
+      if (next_bfp.hand0[0] != i + 1) {
+        auto res1 = use_win(next_bfp, next_bfp.hand0[1]);
 
         if(res0.first){
           or_first = true;
@@ -855,7 +846,7 @@ std::pair<bool, int> draw_win(const bf_position& bfp) {
     }
   }
 
-  if (max_f == -1) return {false, 0};
+  if (max_f == -1 || !all_true) return {false, 0};
 
   return {all_true, all_true ? max_f : 0};
 }
@@ -1087,20 +1078,8 @@ int is_terminated_lose(const bf_position& bfp){
   }
   if(bfp.count_deck() < 2 && bfp.hand0[1] == 0){
     int min = bfp.hand_e_min();
-    if(min > bfp.hand_s_min()) return -1;
-    else if(min < bfp.hand_s_max()) return 1;
-    else return 0;
-  }
-  if(!bfp.barrier1 && bfp.hand0[1] > 0){
-    if(bfp.have0(1) && bfp.open1() > 1){
-      return 1;
-    }
-    if(bfp.have0(3) && bfp.hand_e_max() < bfp.other_hand0(3)){
-      return 1;
-    }
-    if(bfp.have0(5) && bfp.open1() == 8){
-      return 1;
-    }
+    if(min > bfp.hand0[0]) return -1;
+    else return 1;
   }
   return 0;
 }
@@ -1108,17 +1087,18 @@ int is_terminated_lose(const bf_position& bfp){
 //<使うカード, 敗北するまでのターン数>を返す。敗北しない場合は<0, 0>
 //ルール上すでに敗北の場合9, 魔術師の使用による敗北で,対象自分のみなら15,対象相手のみなら25
 std::set<std::pair<int, int>> is_lose(const bf_position& bfp) {
-  if(bfp.hand0[1] <= 0) return {};
+  if(bfp.hand0[1] <= 0 || !bfp.is_my_turn) return {};
   // --- 自分のターンの場合 ---
-  int t = is_terminated_lose(bfp);
-  if(t == 1){
-    return {};
-  } else if(t == -1){
-    if(bfp.count_deck() < 2){
-      if(bfp.hand_e_min() > bfp.hand_s_max()) return {{9, 0}};
-      return {{bfp.hand_e_min(), 0}};
-    }
+  // int t = is_terminated_lose(bfp);
+  // if(t == 1) return {};
+  // else if(t == -1) return {{9, 0}};
+  if(bfp.have0(7) && bfp.hand0[0] + bfp.hand0[1] >= 12){
     return {{9, 0}};
+  }
+  if(bfp.count_deck() < 2 && bfp.hand0[1] == 0){
+    int min = bfp.hand_e_min();
+    if(min > bfp.hand0[0]) return {{9, 0}};
+    else return {};
   }
 
   //もともと省かれているため意味なし

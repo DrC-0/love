@@ -55,9 +55,51 @@ unsigned long int soldior_points = 0;
 static Rnd_Perfect_Hash rph;
 static Org_Perfect_Hash oph;
 
+#include "all_elements.hpp"
 #include "rnd_make_infset.hpp"
+#include "infset_dfs.hpp"
 #include "save_load_abshistory.hpp"
 #include "bf_position.hpp"
+
+void output_hash_history(string s, bool rnd){
+  long unsigned int head = 0;
+  int turn = 0;
+  bool bal[2] = {false, false};
+  while(head < s.size()){
+    string action;
+    if(rnd){
+      action = rph.get_action((unsigned char)s[head]);
+    } else {
+      action = oph.get_action((unsigned char)s[head]);
+    }
+    int c2a = char_to_action(action[0]); head++;
+    int num1 = c2a / 10;
+    int num2 = c2a % 10;
+    cout << action_sign[num1 + 1] << num2 + 1;
+    bal[turn] = false;
+    if(num1 == 4){
+      if(br_player == turn && num2 == 0 && bal[1-turn]){
+        int c2t = char_to_twonum(action[1]);
+        cout << (c2t % 10) + 1;
+      } else if(num2 == 1 && !bal[1-turn]){
+        int c2t = char_to_twonum(action[1]);
+        cout << (c2t % 10) + 1;
+      } else if(num2 == 2 && !bal[1-turn]){
+        int c2t = char_to_twonum(action[1]);
+        cout << (c2t % 10) + 1;
+      } else if(num2 == 3){
+        bal[turn] = true;
+      } else if(num2 == 4){
+        int c2w = char_to_wizard(action[1]);
+        cout << c2w / 100 << ((c2w / 10) % 10) + 1 << (c2w % 10) + 1;
+      } else if(num2 == 5 && !bal[1-turn]){
+        int c2t = char_to_twonum(action[1]);
+        cout << (c2t / 10) + 1 << (c2t % 10) + 1;
+      }
+      turn = 1 - turn;
+    }
+  }
+}
 
 void compare_abs_cfr(int open[3]){
   string filename1 = "str";
@@ -101,44 +143,23 @@ void compare_abs_cfr(int open[3]){
   set<string> only_history;
   string filename2 = "abs" + subgame + ".bin";
   load_bin_abs(filename2, abs_history, only_history);
-  double err = 1e-2;
+  // double err = 1e-2;
 
-  int results[2] = {0, 0};
-  for(map<string, infset>::iterator it = table_infset.begin(); it != table_infset.end();++it){
-    // abs_historyに含まれていたら必勝あるいは必敗
-    auto ut = abs_history.upper_bound(it->first);
-    if (ut != abs_history.begin()) {
-      auto ut_prev = std::prev(ut);
-      if (it->first == ut_prev->first) {
-        bf_position bfp(open, it->first);
-        node n(it->first, true, open);
-        if(ut_prev->second) {
-          auto res = is_win(bfp);
-          int casted = static_cast<int>(std::round(it->second.get_prob_action()));
-          if(res.first == n.hand1[casted] && std::abs(casted - it->second.get_prob_action()) <= err){
-            if(n.hand1[0] != bfp.hand0[0]){
-              // cout << "win move:" << res.first << " :" << casted << " " << it->second.get_prob_action() << endl;
-              output_actions_history(it->first, true);
-              n.print_node();
-              bfp.print();
-              cout << "-----------------------------" << endl;
-            }
-            results[1]++;
-          }else results[0]++;
-        }
-      } else if(only_history.contains(it->first)){
-        // bf_position bfp(open, it->first);
-        // auto lose_actions = is_lose(bfp);
-        // for(auto lose_action : lose_actions){
-        //   if(lose_action.first == bfp.hand0[0] && it->second.get_prob_action() < 1 - err)
-        //     output_actions_history(it->first, true);
-        //   else if(lose_action.first == bfp.hand0[1] && it->second.get_prob_action() > err)
-        //     output_actions_history(it->first, true);
-        // }
-      }
-    }
+
+  map<string, bool>::iterator his;
+  for(auto h = std::next(abs_history.begin()); h != abs_history.end(); ++h){
+    his = h;
+    if(his->second) break;
   }
-  cout << "Results: " << results[0] << " : " << results[1] << endl;
+  output_actions_history(his->first, true);
+  output_hash_history(his->first, true);
+  auto bfp = bf_position(open, his->first);
+  bfp.print();
+  cout << "win" << is_win(bfp).first << endl;
+  all_exp_reward(his->first, open, all_history, -1, 0);
+  for(map<string,double>::iterator it = table_exp_reward.begin(); it != table_exp_reward.end(); ++it){
+    cout << "his : " << it->first << " exp_reward : " << it->second << endl;
+  }
 }
 
 int main(int argc, char *argv[]){
