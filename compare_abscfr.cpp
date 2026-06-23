@@ -55,7 +55,7 @@ unsigned long int soldior_points = 0;
 static Rnd_Perfect_Hash rph;
 static Org_Perfect_Hash oph;
 
-#include "all_elements.hpp"
+#include "all_elements_rnd.hpp"
 #include "rnd_make_infset.hpp"
 #include "infset_dfs.hpp"
 #include "save_load_abshistory.hpp"
@@ -156,9 +156,24 @@ void compare_abs_cfr(int open[3]){
   auto bfp = bf_position(open, his->first);
   bfp.print();
   cout << "win" << is_win(bfp).first << endl;
-  all_exp_reward(his->first, open, all_history, -1, 0);
-  for(map<string,double>::iterator it = table_exp_reward.begin(); it != table_exp_reward.end(); ++it){
-    cout << "his : " << it->first << " exp_reward : " << it->second << endl;
+  node n(open);
+  string key = his->first;
+  for(int i = 1; i < 9; i++){
+    if(n.deck[i-1] == 0) { continue; }
+    work_do_action all_w;
+    n.do_action(1, i, all_w);
+    all_put_hide_card(key, 0, n);
+    n.undo_action(1, i, all_w);
+  }
+  for(auto& history : all_history) {
+    output_actions_history(history, true);
+    vector<string> m;
+    node n(history, true, open);
+    string key = n.org_his_p[0].get_hash_value();
+    all_exp_reward(key, open, m, -1, 0);
+    // map<string, double>::iterator table_exp_reward_it;
+    // table_exp_reward_it = table_exp_reward.find(key);
+    // cout << "exp_reward : " << table_exp_reward_it->second << endl;
   }
 }
 

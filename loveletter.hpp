@@ -78,6 +78,7 @@ class infset{
     //int player; //can be removed
     bool play; //can be removed
     bool wizard; //can be removed
+    bool soldior; //add from base
 #ifdef CHECK_STR
     bool wizard_with_general;
     bool wizard_with_princess;

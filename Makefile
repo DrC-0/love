@@ -19,6 +19,12 @@ cfr: cfr.cpp $(COMMON_SRCS) $(COMMON_HDRS)
 cfr0: cfr_zero.cpp $(COMMON_SRCS) $(COMMON_HDRS)
 	g++ -std=c++20 -Wall -O2 $(COMMON_DEFS) -DCFR $(COMMON_SRCS) cfr_zero.cpp -o $@
 
+cfrorg: cfr_org.cpp $(COMMON_SRCS) $(COMMON_HDRS)
+	g++ -std=c++20 -Wall -O2 $(COMMON_DEFS) -DCFR $(COMMON_SRCS) cfr_org.cpp -o $@
+
+watch: cfr_org.cpp $(COMMON_SRCS) $(COMMON_HDRS)
+	g++ -std=c++20 -Wall -O2 $(COMMON_DEFS) -DCFR $(COMMON_SRCS) watch_cfr.cpp -o $@
+
 # --- Best Response系ターゲット (-DBEST_RESPONSE を使用) ---
 
 brrnd: br_rnd.cpp $(COMMON_SRCS) $(COMMON_HDRS)

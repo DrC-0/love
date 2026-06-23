@@ -11,5 +11,7 @@ win
 comp
 end
 test
+cfrorg
+watch
 test.cpp
 credentials.json
