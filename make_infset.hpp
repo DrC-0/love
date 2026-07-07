@@ -1,3 +1,8 @@
+#ifndef BF_POSITION_HPP
+#include "bf_position.hpp"
+#endif
+std::set<std::string> only_history;
+std::map<std::string, bool> abs_history;
 void org_ds_put_hide_card(node &n);
 void org_ds_draw_p1_init(node &n);
 void org_ds_draw_p2_init(node &n);
@@ -6,6 +11,8 @@ void org_ds_play(node &n, int c);
 void org_ds_wizard(node &n);
 void org_ds_wizard_self(node &n);
 void org_ds_soldior(node &n); // 兵士用の状態分岐関数を追加
+void cnt_wl_decision(int open[3], const std::string& history);
+
 
 void org_ds_put_hide_card(node &n){
     rand_points++;
@@ -114,28 +121,9 @@ void org_ds_draw(node &n){
       p2_points++;
     }
     int c1, c2;
-    // org_his_p を使用
     string key = n.org_his_p[n.turn].get_hash_value();
-    infset &x = table_infset[key];
+    cnt_wl_decision(n.open, key);
 
-    if(all_elements_test) {
-#ifdef ALL_ELEMENTS_TEST
-      cout << "org_ds_draw history add" << endl;
-      x.history.emplace_back(n.org_his.get_hash_value());
-      x.history.shrink_to_fit();
-#endif
-    }
-    if(x.get_pi_i() > 0 && abs(x.get_pi_i() - n.npi[n.turn][n.depth]) > pow(10.0, -10.0)) terminate();
-    x.set_pi_i(n.npi[n.turn][n.depth]); assert(x.get_pi_i() != 0);
-    x.depth = n.count_turn;
-    x.play = true;
-#ifdef CHECK_STR
-    cout << "org_ds_draw check_str" << endl;
-    if(n.hand1[0] == 6) x.general0 = true;
-    if(n.hand1[1] == 6) x.general1 = true;
-    if(n.hand1[0] == 7) x.minister0 = true;
-    if(n.hand1[1] == 7) x.minister1 = true;
-#endif
     w.infset_it = table_infset.find(key);
     work_do_action w2 = w;
     c1 = n.hand1[0]; c2 = n.hand1[1];
@@ -162,17 +150,7 @@ void org_ds_play(node &n, int c){
             }
             // 兵士の推測行動用のInformation Setを作成
             string key = n.org_his_p[n.turn].get_hash_value();
-            infset &x = table_infset[key];
-            if(all_elements_test) {
-#ifdef ALL_ELEMENTS_TEST
-              x.history.emplace_back(n.org_his.get_hash_value());
-              x.history.shrink_to_fit();
-#endif
-            }
-            if(x.get_pi_i() > 0 && abs(x.get_pi_i() - n.npi[n.turn][n.depth]) > pow(10.0, -10.0)) terminate();
-            x.set_pi_i(n.npi[n.turn][n.depth]); assert(x.get_pi_i() != 0);
-            x.depth = n.count_turn;
-            x.soldior = true;
+            cnt_wl_decision(n.open, key);
 
             work_do_action ds_w0;
             ds_w0.infset_it = table_infset.find(key);
@@ -197,8 +175,8 @@ void org_ds_play(node &n, int c){
             }
             // 山札などの関係で選択肢が全くない場合
             if(!candidate[1] && !candidate[2] && !candidate[3] && !candidate[4] && !candidate[5] && !candidate[6] && !candidate[7]){
-              // org_ds_soldior(n);
-              exit(1); // ここは本来ありえないはずなので、異常終了させる
+              org_ds_soldior(n);
+              // exit(1); // ここは本来ありえないはずなので、異常終了させる
             }
             return;
           }
@@ -220,23 +198,9 @@ void org_ds_play(node &n, int c){
           } else {
             p2_points++;
           }
-          // org_his_p を使用
           string key = n.org_his_p[n.turn].get_hash_value();
-          infset &x = table_infset[key];
-          if(all_elements_test) {
-#ifdef ALL_ELEMENTS_TEST
-            x.history.emplace_back(n.org_his.get_hash_value());
-            x.history.shrink_to_fit();
-#endif
-          }
-          if(x.get_pi_i() > 0 && abs(x.get_pi_i() - n.npi[n.turn][n.depth]) > pow(10.0, -10.0)) terminate();
-          x.set_pi_i(n.npi[n.turn][n.depth]); assert(x.get_pi_i() != 0);
-          x.depth = n.count_turn;
-          x.wizard = true;
-#ifdef CHECK_STR
-    if(n.hand1[0] == 6) x.wizard_with_general = true;
-    if(n.hand1[0] == 8) x.wizard_with_princess = true;
-#endif
+          cnt_wl_decision(n.open, key);
+
           work_do_action ds_w0;
           ds_w0.infset_it = table_infset.find(key);
           if(n.dsum() == 0){ end_points++;
@@ -348,4 +312,62 @@ void org_ds_wizard_self(node &n){
       n.undo_action(4, i, w);
     }
     return;
+}
+
+
+void cnt_wl_decision(int open[3], const std::string& history){
+  bf_position bfp(open, history, false);
+  action_cnt += action_count(bfp);
+
+  auto res_win = is_win(bfp);
+  if(res_win.first > 0){
+    win_act[res_win.second]++;
+    abs_history.insert({history, true});
+  } else {
+    win_act[0]++;
+  }
+
+  auto lose_actions = is_lose(bfp);
+  int act_cnt = action_count(bfp);
+  int able_act = act_cnt - lose_actions.size();
+  lose_move[0] += able_act;
+  if(able_act == 1 && act_cnt > 1) only_history.insert(history);
+
+  for(const auto& lose_action : lose_actions){
+    lose_move[lose_action.second]++;
+
+    if(lose_action.first == 9){
+      output_actions_history(history, false);
+    } else {
+      string action = oph.get_action((unsigned char)history[0]);
+      int firstp = char_to_action(action[0]) / 10;
+      auto actions = able_actions(bfp, lose_action.first, firstp == 2);
+
+      for(int act : actions){
+        string new_hist = history + string(1, action2char(act, false));
+        abs_history.insert({new_hist, false});
+      }
+    }
+  }
+
+  bool rm_bywin = false;
+  bool rm_bylose = false;
+
+  auto ut = abs_history.upper_bound(history);
+  if(ut != abs_history.begin()){
+    auto ut_prev = std::prev(ut);
+    if(history.starts_with(ut_prev->first)){
+      if(ut_prev->second) rm_bywin = true;
+      else rm_bylose = true;
+    }
+  }
+
+  if(!rm_bywin && !rm_bylose && only_history.contains(history)){
+    rm_bylose = true;
+  }
+
+  decision_points[0]++;
+  if(!rm_bywin) decision_points[1]++;
+  if(!rm_bylose) decision_points[2]++;
+  if(!rm_bywin && !rm_bylose) decision_points[3]++;
 }

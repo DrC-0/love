@@ -19,7 +19,7 @@ cfr: cfr.cpp $(COMMON_SRCS) $(COMMON_HDRS)
 cfr0: cfr_zero.cpp $(COMMON_SRCS) $(COMMON_HDRS)
 	g++ -std=c++20 -Wall -O2 $(COMMON_DEFS) -DCFR $(COMMON_SRCS) cfr_zero.cpp -o $@
 
-cfrorg: cfr_org.cpp $(COMMON_SRCS) $(COMMON_HDRS)
+cfrorg: cfr_org.cpp make_infset.hpp $(COMMON_SRCS) $(COMMON_HDRS)
 	g++ -std=c++20 -Wall -O2 $(COMMON_DEFS) -DCFR $(COMMON_SRCS) cfr_org.cpp -o $@
 
 watch: cfr_org.cpp $(COMMON_SRCS) $(COMMON_HDRS)

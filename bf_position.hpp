@@ -31,6 +31,8 @@ bool commentablebfp = false;
 
 struct bf_position{
   bool is_my_turn;
+  bool is_sol_choice;
+  bool is_wiz_choice;
   bool not7_flag_s;//1bit
   bool not7_flag_e;//1bit
   bool barrier0;//1bit
@@ -44,13 +46,15 @@ struct bf_position{
   int hand0[2];//6bit
   int trash[8];//12bit
   bf_position()
-    : is_my_turn(false), not7_flag_s(false), not7_flag_e(false), barrier0(false), barrier1(false),
-      lt5_flag_s(false), lt5_flag_e(false), open_flag_s(0), open_flag_e(0),
+    : is_my_turn(false), is_sol_choice(false), is_wiz_choice(false), not7_flag_s(false), not7_flag_e(false),
+      barrier0(false), barrier1(false), lt5_flag_s(false), lt5_flag_e(false), open_flag_s(0), open_flag_e(0),
       sol_flag_s{0, 0}, sol_flag_e{0, 0}, hand0 {0, 0}, trash {0, 0, 0, 0, 0, 0, 0, 0} {}
-  bf_position(bool is_my_turn, bool not7_flag_s, bool not7_flag_e, bool barrier0, bool barrier1,
+  bf_position(bool is_my_turn, bool is_sol_choice, bool is_wiz_choice, bool not7_flag_s, bool not7_flag_e, bool barrier0, bool barrier1,
               bool lt5_flag_s, bool lt5_flag_e, int open_flag_s, int open_flag_e,
               int sol_flag_s[2], int sol_flag_e[2], const int hand0[2], const int trash[8])
     : is_my_turn(is_my_turn),
+      is_sol_choice(is_sol_choice),
+      is_wiz_choice(is_wiz_choice),
       not7_flag_s(not7_flag_s),
       not7_flag_e(not7_flag_e),
       barrier0(barrier0),
@@ -64,7 +68,7 @@ struct bf_position{
         std::copy(hand0, hand0 + 2, this->hand0);
         std::copy(trash, trash + 8, this->trash);
       }
-  bf_position(int open[3], std::string history);
+  bf_position(int open[3], std::string history, bool rnd);
   int deck_or_hand1(int i) const;
   bool hand1(int i) const;
   int open1() const;
@@ -89,8 +93,12 @@ std::pair<int, int> is_terminated_win(const bf_position& bfp);
 std::pair<bool, int> use_win(const bf_position& bfp, int card);
 std::pair<bool, int> draw_win(const bf_position& bfp);
 std::pair<bool, int> enemy_turn_win(const bf_position& bfp);
+std::pair<bool, int> sol_win(const bf_position& bfp, int card);
+std::pair<bool, int> wiz_win(const bf_position& bfp, bool to0p);
+std::pair<bool, int> use_wiz_win(const bf_position& bfp, bool to0p);
 std::vector<bf_position> ef_wizard(const bf_position& bfp, bool to_0p);
 bf_position draw(const bf_position& bfp, int draw_card);
+bf_position swap_player(const bf_position& bfp, const int hand);
 unsigned char action2char(int x, bool rnd);
 std::string actions_to_string(const std::vector<int>& actions, bool rnd);
 std::string get_actions_history(std::string s, bool rnd);
@@ -165,8 +173,8 @@ int count_deck(const int i, const int hand[2], const int trash[8]){
   return count -1;
 }
 
-bf_position::bf_position(int open[3], string history): is_my_turn(false), not7_flag_s(false), not7_flag_e(false),
-      barrier0(false), barrier1(false), lt5_flag_s(false), lt5_flag_e(false), open_flag_s(0),
+bf_position::bf_position(int open[3], string history, bool rnd = true): is_my_turn(false), is_sol_choice(false), is_wiz_choice(false),
+      not7_flag_s(false), not7_flag_e(false),barrier0(false), barrier1(false), lt5_flag_s(false), lt5_flag_e(false), open_flag_s(0),
       open_flag_e(0), sol_flag_s{0, 0}, sol_flag_e{0, 0}, hand0 {0, 0}, trash {0, 0, 0, 0, 0, 0, 0, 0} {
   for(int i = 0; i < 3; i++){
     trash[open[i]-1] += 1;
@@ -175,7 +183,8 @@ bf_position::bf_position(int open[3], string history): is_my_turn(false), not7_f
   bool is_second_player = false;
   while(head < history.size()){
     string action;
-    action = rph.get_action((unsigned char)history[head]);
+    if(rnd) action = rph.get_action((unsigned char)history[head]);
+    else action = oph.get_action((unsigned char)history[head]);
     int c2a = char_to_action(action[0]); head++;
     int num1 = c2a / 10;
     int num2 = c2a % 10;
@@ -195,6 +204,8 @@ bf_position::bf_position(int open[3], string history): is_my_turn(false), not7_f
       barrier0 = false;
     }
     else if(num1 == 4){
+      is_sol_choice = false;
+      is_wiz_choice = false;
       if(is_my_turn){//player1のカード使用
         trash[num2] += 1;
 
@@ -209,7 +220,13 @@ bf_position::bf_position(int open[3], string history): is_my_turn(false), not7_f
         barrier0 = false;
         *this = reset_flag_by_use(*this, true, num2 + 1);
 
-        if(num2 + 1 == 2 && !barrier1){
+        if(num2 + 1 == 1){
+          if(!barrier1 && action.size() > 1){
+            int c2t = char_to_twonum(action[1]);
+            int choice = (c2t % 10) + 1;
+            if(choice > 1) add_sol_e(choice);
+          }else is_sol_choice = true;
+        } else if(num2 + 1 == 2 && !barrier1){
           int c2t = char_to_twonum(action[1]);
           open_flag_e = (c2t % 10) + 1;
         } else if(num2 + 1 == 3 && !barrier1){
@@ -219,19 +236,21 @@ bf_position::bf_position(int open[3], string history): is_my_turn(false), not7_f
         } else if(num2 + 1 == 4){
           barrier0 = true;
         } else if(num2 + 1 == 5){
-          not7_flag_s = true;
-          int c2w = char_to_wizard(action[1]);
-          int to = c2w / 100;
-          int trashcard = (c2w / 10) % 10;
-          int draw = c2w % 10;
-          if(is_second_player == to){
-            trash[trashcard] += 1;
-            hand0[0] = draw + 1;
-            reset_flag(true);//自分のフラグリセット
-          } else if(!barrier1){
-            trash[trashcard] += 1;
-            reset_flag(false);//相手のフラグリセット
-          }
+          if(action.size() > 1){
+            not7_flag_s = true;
+            int c2w = char_to_wizard(action[1]);
+            int to = c2w / 100;
+            int trashcard = (c2w / 10) % 10;
+            int draw = c2w % 10;
+            if(is_second_player == to){
+              trash[trashcard] += 1;
+              hand0[0] = draw + 1;
+              reset_flag(true);//自分のフラグリセット
+            } else if(!barrier1){
+              trash[trashcard] += 1;
+              reset_flag(false);//相手のフラグリセット
+            }
+          } else is_wiz_choice = true;
         } else if(num2 + 1 == 6 && !barrier1){
           int c2t = char_to_twonum(action[1]);
           hand0[0] = (c2t % 10) + 1;
@@ -250,7 +269,11 @@ bf_position::bf_position(int open[3], string history): is_my_turn(false), not7_f
         //手札の候補のリセット
         barrier1 = false;
         *this = reset_flag_by_use(*this, false, num2 + 1);
-        if(num2 + 1 == 2 && !barrier0){
+        if(num2 + 1 == 1 && !barrier0 && action.size() > 1){
+            int c2t = char_to_twonum(action[1]);
+            int choice = (c2t % 10) + 1;
+            if(choice > 1) add_sol_s(choice);
+        } else if(num2 + 1 == 2 && !barrier0){
           int c2t = char_to_twonum(action[1]);
           open_flag_s = (c2t % 10) + 1;
         }else if(num2 + 1 == 3 && !barrier0){
@@ -491,8 +514,33 @@ std::pair<int, int> is_win(const bf_position& bfp) {
   if(t.first != -1) return t;
 
   std::pair<int, int> res;
+  if(bfp.hand0[1] == 0 && bfp.is_sol_choice){
+    bool has_true = false;
+    int min_t = 1e9;
+    for(int i = 1; i < 8; i++){
+      if(bfp.hand1(i)){
+        auto res = sol_win(bfp, i+1);
+        if(res.first){
+          has_true = true;
+          min_t = std::min(min_t, res.second);
+        }
+      }
+    }
+    //相手の手札候補がないはずないため省略
+    return {has_true, has_true ? min_t + 1 : 0};
 
-  if(bfp.is_my_turn && bfp.hand0[1] != 0){
+  } else if(bfp.hand0[1] == 0 && bfp.is_wiz_choice){
+    auto res_self = wiz_win(bfp, true);
+    auto res_enemy = wiz_win(bfp, false);
+
+    bool has_true = res_self.first || res_enemy.first;
+
+    int min_t = 1e9;
+    if (res_self.first) min_t = std::min(min_t, res_self.second);
+    if (res_enemy.first) min_t = std::min(min_t, res_enemy.second);
+
+    return {has_true, has_true ? min_t + 1 : 0};
+  } else if(bfp.is_my_turn && bfp.hand0[1] != 0){
     // 手札が2枚あり、両方同じカードの場合（片方だけ評価して無駄を省く）
     if(bfp.hand0[0] == bfp.hand0[1]){
       res = use_win(bfp, bfp.hand0[0]);
@@ -562,9 +610,7 @@ std::pair<bool, int> use_win(const bf_position& bfp, int card){
     int min_t = 1e9;
     for(int i = 1; i < 8; i++){
       if(bfp.hand1(i)){
-        struct bf_position next_bfp2 = next_bfp;
-        next_bfp2.add_sol_e(i + 1);
-        auto res = enemy_turn_win(next_bfp2);
+        auto res = sol_win(next_bfp, i+1);
         if(res.first){
           has_true = true;
           min_t = std::min(min_t, res.second);
@@ -607,33 +653,16 @@ std::pair<bool, int> use_win(const bf_position& bfp, int card){
     auto res = enemy_turn_win(next_bfp);
     return {res.first, res.first ? res.second + 1 : 0};
   }else if(card == 5){
-    std::vector<bf_position> preds_toself = ef_wizard(next_bfp, true);
-    if (preds_toself.empty()) return {false, 0};
-
-    // 魔術師専用の評価ラムダ
-    auto eval_preds = [&](const std::vector<bf_position>& preds) -> std::pair<bool, int> {
-      if (preds.empty()) return {false, 0};
-      int local_max_f = -1;
-      bool local_all_true = true;
-      for (const auto& p : preds) {
-        auto res = enemy_turn_win(p);
-        if (res.first) local_max_f = std::max(local_max_f, res.second);
-        else local_all_true = false;
-      }
-      return {local_all_true, local_all_true ? local_max_f : 0};
-    };
-
-    auto res_self = eval_preds(preds_toself);
-    std::vector<bf_position> preds_toenemy = ef_wizard(next_bfp, false);
-    auto res_enemy = eval_preds(preds_toenemy);
+    auto res_self = wiz_win(next_bfp, true);
+    auto res_enemy = wiz_win(next_bfp, false);
 
     bool has_true = res_self.first || res_enemy.first;
 
-    int global_min_t = 1e9;
-    if (res_self.first) global_min_t = std::min(global_min_t, res_self.second);
-    if (res_enemy.first) global_min_t = std::min(global_min_t, res_enemy.second);
+    int min_t = 1e9;
+    if (res_self.first) min_t = std::min(min_t, res_self.second);
+    if (res_enemy.first) min_t = std::min(min_t, res_enemy.second);
 
-    return {has_true, has_true ? global_min_t + 1 : 0};
+    return {has_true, has_true ? min_t + 1 : 0};
   }else if(card == 6){
     next_bfp.reset_flag(true);
     next_bfp.reset_flag(false);
@@ -858,6 +887,30 @@ bf_position draw(const bf_position& bfp, int draw_card){
   return next_bfp;
 }
 
+std::pair<bool, int> sol_win(const bf_position& bfp, int card) {
+  struct bf_position next_bfp = bfp;
+  next_bfp.add_sol_e(card);
+  return enemy_turn_win(next_bfp);
+}
+
+std::pair<bool, int> wiz_win(const bf_position& bfp, bool to0p) {
+    std::vector<bf_position> preds = ef_wizard(bfp, to0p);
+    if (preds.empty()) return {false, 0};
+
+    int local_max_f = -1;
+    bool local_all_true = true;
+    for (const auto& p : preds) {
+      auto res = enemy_turn_win(p);
+      if (res.first) {
+        local_max_f = std::max(local_max_f, res.second);
+      } else {
+        local_all_true = false;
+      }
+    }
+    return {local_all_true, local_all_true ? local_max_f : 0};
+}
+
+
 std::vector<bf_position> ef_wizard(const bf_position& bfp, bool to_0p){
   std::vector<bf_position> bfps;
   if(bfp.is_my_turn == false){//use_abswinの最初でturnを切り替えるためturn==falseは0playerのターン
@@ -1000,7 +1053,7 @@ std::string actions_to_string(const std::vector<int>& actions, bool rnd) {
   return history;
 }
 
-string get_actions_history(std::string s, bool rnd){
+string get_actions_history(std::string s, bool rnd = true){
   long unsigned int head = 0;
   int turn = 0;
   bool bal[2] = {false, false};
@@ -1019,10 +1072,9 @@ string get_actions_history(std::string s, bool rnd){
     // cout << c2a;
     bal[turn] = false;
     if(num1 == 4){
-      if( num2 == 0 && bal[1-turn]){
+       if(num2 == 0 && !bal[1-turn] && action.size() > 1){
         int c2t = char_to_twonum(action[1]);
         history += to_string(c2t%10);
-        // cout << (c2t % 10);
       } else if(num2 == 1 && !bal[1-turn]){
         int c2t = char_to_twonum(action[1]);
         history += to_string(c2t%10);
@@ -1055,7 +1107,7 @@ string get_actions_history(std::string s, bool rnd){
   return history;
 }
 
-void output_actions_history(std::string s, bool rnd){
+void output_actions_history(std::string s, bool rnd = true){
   cout << get_actions_history(s, rnd) << endl;
 }
 
@@ -1324,23 +1376,17 @@ std::vector<int> able_actions(const bf_position& bfp, int card, bool is_second_p
   return actions;
 }
 
-int action_count(const int hand[2]) {
-  // 値に応じた加算量を返すラムダ関数
-  auto get_score = [](int val) {
-    if (val == 1 || val == 2 || val == 3 || val == 4 || val == 6 || val == 7) {
-      return 1;
+int action_count(const bf_position& bfp) {
+  if(bfp.is_sol_choice) {
+    int count = 0;
+    for(int i = 0; i < 8; i++) {
+      if(bfp.hand1(i)) count++;
     }
-    if (val == 5) {
-      return 2;
-    }
-    return 0; // 条件にない値（0や8など）の場合
-  };
-
-  // 同値なら片方だけ、異なるなら両方を足す
-  if (hand[0] == hand[1]) {
-    return get_score(hand[0]);
-  } else {
-    return get_score(hand[0]) + get_score(hand[1]);
+    return count;
   }
+  if(bfp.is_wiz_choice) return 2;
+
+  if(bfp.hand0[1] == 0) return 0;
+  return bfp.hand0[0] == bfp.hand0[1] ? 1 : 2;
 }
 #endif

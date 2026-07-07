@@ -28,7 +28,6 @@ extern int char_to_twonum(char c);
 using namespace std;
 
 int cfr_switch = 0;
-int cfr_player = 0;
 bool br_switch = false;
 int br_player = 0;
 bool org_switch = false;
@@ -37,7 +36,12 @@ unsigned long int p1_points = 0;
 unsigned long int p2_points = 0;
 unsigned long int rand_points = 0;
 unsigned long int end_points = 0;
+unsigned long int win_act[6] = {0, 0, 0, 0, 0, 0};
+unsigned long int lose_move[6] = {0, 0, 0, 0, 0, 0};
+unsigned long int action_cnt = 0;
+unsigned long int decision_points[4] = {0, 0, 0, 0};
 bool knight_check = true;
+static Org_Perfect_Hash oph;
 
 #include "make_infset.hpp"
 
@@ -50,12 +54,15 @@ void cfr_zero(int open[3]){
     n_ds.do_action(1, i, ds_w);
     org_ds_put_hide_card(n_ds);
     n_ds.undo_action(1, i, ds_w);
-    cout << table_infset.size() << endl;
+    cout << decision_points[0] << endl;
   }
   cout << "p1_points : " << p1_points << endl;
   cout << "p2_points : " << p2_points << endl;
   cout << "rand_points : " << rand_points << endl;
   cout << "end_points : " << end_points << endl;
+  cout << "decision_points : " << endl;
+  for(int i = 0; i < 4; i++) cout << decision_points[i] << " ";
+  cout << endl;
   cout << "End DS. " << endl;
   return;
 }

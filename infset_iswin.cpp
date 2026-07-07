@@ -58,14 +58,14 @@ void cnt_abs(int open[3], string history){
   }else win_move[0]++;
 
   auto lose_actions = is_lose(bfp);
-  int act_cnt = action_count(bfp.hand0);
+  int act_cnt = action_count(bfp);
   int able_act = act_cnt - lose_actions.size();
   lose_move[0] += able_act ;
   if(able_act == 1 && act_cnt > 1) only_history.insert(history);
   for(const auto& lose_action : lose_actions){
     lose_move[lose_action.second]++;
 
-    if (lose_action.second == 9) {
+    if (lose_action.first == 9) {
       output_actions_history(history, true);
     }
     else {
@@ -101,7 +101,7 @@ void infset_iswin(int open[3]){
 
   for(map<string, infset>::iterator it = table_infset.begin(); it != table_infset.end();++it){
     bf_position bfp(open, it->first);
-    action_cnt += action_count(bfp.hand0);
+    action_cnt += action_count(bfp);
     cnt_abs(open, it->first);
   }
 
