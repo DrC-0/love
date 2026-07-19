@@ -70,11 +70,11 @@ struct bf_position{
   bf_position(int open[3], std::string history, bool rnd);
   int deck_or_hand_e(int i) const;
   bool hand_e(int i) const;
-  bool hand_s(int i) const;
+  bool hand_s_est(int i) const;
   int open_e() const;
   int open_s() const;
   bool deck(int i) const;
-  bool have0(int card) const;
+  bool have_s(int card) const;
   int other_hand_s(int card) const;
   int count_deck() const;
   int hand_e_max() const;
@@ -85,6 +85,15 @@ struct bf_position{
   void reset_flag(bool is_self);
   void print() const;
 } ;
+
+int trash_and_hand_s(const int i, const int hand[2], const int trash[8]);
+int deck_or_hand_e(const int i, const int hand[2], const int trash[8]);
+bool hand_e(const int i, const int hand[2], const int trash[8], const int open_flag_e, const int sol_flag_e[2], const bool lt5_flag_e, const bool not7_flag_e);
+int open_e(const int hand[2], const int trash[8], const int open_flag_s, const int sol_flag_s[2], const bool lt5_flag_s, const bool not7_flag_s);
+bool deck(const int i, const int hand[2], const int trash[8], const int open_flag_e, const int sol_flag_e[2], const bool lt5_flag_e, const bool not7_flag_e);
+bool in(const int hand[2], const int target);
+int other(const int hand[2], const int target);
+int count_deck(const int i, const int hand[2], const int trash[8]);
 
 bf_position reset_flag_by_use(const bf_position& bfp, bool is_self, int card);
 std::pair<int, int> is_win(const bf_position& bfp);
@@ -312,16 +321,16 @@ bf_position::bf_position(int open[3], string history, bool rnd = true): is_my_tu
 }
 
 int bf_position::deck_or_hand_e(int i) const {
-  return deck_or_hand_e(i, hand_s, trash);
+  return ::deck_or_hand_e(i, hand_s, trash);
 }
 
 bool bf_position::hand_e(int i) const {
-  return hand_e(i, hand_s, trash, open_flag_e, sol_flag_e, lt5_flag_e, not7_flag_e);
+  return ::hand_e(i, hand_s, trash, open_flag_e, sol_flag_e, lt5_flag_e, not7_flag_e);
 }
 
-bool bf_position::hand_s(int i) const {
-  int hand_e[2] = {open_e(), 0};
-  return hand_e(i, hand_e, trash, open_flag_s, sol_flag_s, lt5_flag_s, not7_flag_s);
+bool bf_position::hand_s_est(int i) const {
+  int enemy_hand[2] = {open_e(), 0};
+  return ::hand_e(i, enemy_hand, trash, open_flag_s, sol_flag_s, lt5_flag_s, not7_flag_s);
 }
 
 int bf_position::open_e() const {
@@ -341,7 +350,7 @@ int bf_position::open_e() const {
 int bf_position::open_s() const {
   int card = 0;
   for (int i = 0; i < 8; i++){
-    if(hand_s(i)){
+    if(hand_s_est(i)){
       if(card == 0){
         card = i+1;
       } else {
@@ -357,7 +366,7 @@ bool bf_position::deck(int i) const {
   return deck_or_hand_e(i) > (i + 1 == open_card ? 1 : 0);
 }
 
-bool bf_position::have0(int card) const {
+bool bf_position::have_s(int card) const {
   return hand_s[0] == card || hand_s[1] == card;
 }
 
@@ -493,7 +502,7 @@ bf_position reset_flag_by_use(const bf_position& bfp, bool to_self, int card){
 }
 
 std::pair<int, int> is_terminated_win(const bf_position& bfp){
-  if(bfp.have0(7) && bfp.hand_s[0] + bfp.hand_s[1] >= 12){
+  if(bfp.have_s(7) && bfp.hand_s[0] + bfp.hand_s[1] >= 12){
     return {0, 0};
   }
   if(bfp.count_deck() < 2 && bfp.hand_s[1] == 0 && !bfp.is_wiz_choice && !bfp.is_sol_choice){
@@ -503,13 +512,13 @@ std::pair<int, int> is_terminated_win(const bf_position& bfp){
     else return {0, 0};
   }
   if(!bfp.barrier_e && bfp.hand_s[1] > 0){
-    if(bfp.have0(1) && bfp.open_e() > 1){
+    if(bfp.have_s(1) && bfp.open_e() > 1){
       return {1, 1};
     }
-    if(bfp.have0(3) && bfp.hand_e_max() < bfp.other_hand_s(3)){
+    if(bfp.have_s(3) && bfp.hand_e_max() < bfp.other_hand_s(3)){
       return {3, 1};
     }
-    if(bfp.have0(5) && bfp.open_e() == 8){
+    if(bfp.have_s(5) && bfp.open_e() == 8){
       return {5, 1};
     }
   }
@@ -1138,7 +1147,7 @@ bf_position swap_player(const bf_position& bfp, const int hand){
 //ルール上すでに敗北の場合9, 魔術師の使用による敗北で,対象自分のみなら15,対象相手のみなら25
 std::vector<std::pair<int, int>> is_lose(const bf_position& bfp) {
 
-  if(bfp.have0(7) && bfp.hand_s[0] + bfp.hand_s[1] >= 12){
+  if(bfp.have_s(7) && bfp.hand_s[0] + bfp.hand_s[1] >= 12){
     return {{9, 0}};
   }
   if(bfp.count_deck() < 2 && bfp.hand_s[1] == 0 && !bfp.is_wiz_choice && !bfp.is_sol_choice){
@@ -1146,7 +1155,7 @@ std::vector<std::pair<int, int>> is_lose(const bf_position& bfp) {
     if(min > bfp.hand_s[0]) return {{9, 0}};
     else return {};
   }
-  if(bfp.have0(8)) return {{8, 1}};
+  if(bfp.have_s(8)) return {{8, 1}};
 
   std::vector<std::pair<int, int>> res;
 
