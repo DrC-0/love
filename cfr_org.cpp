@@ -36,8 +36,8 @@ unsigned long int p1_points = 0;
 unsigned long int p2_points = 0;
 unsigned long int rand_points = 0;
 unsigned long int end_points = 0;
-unsigned long int win_act[6] = {0, 0, 0, 0, 0, 0};
-unsigned long int lose_move[6] = {0, 0, 0, 0, 0, 0};
+unsigned long int win_points[6] = {0, 0, 0, 0, 0, 0};
+unsigned long int lose_points[6] = {0, 0, 0, 0, 0, 0};
 unsigned long int action_cnt = 0;
 unsigned long int decision_points[4] = {0, 0, 0, 0};
 bool knight_check = true;
@@ -45,7 +45,7 @@ static Org_Perfect_Hash oph;
 
 #include "make_infset.hpp"
 
-void cfr_zero(int open[3]){
+void cfr_org(int open[3]){
   node n_ds(open);
   rand_points++;
   for(int i = 1; i < 9; i++){
@@ -60,6 +60,12 @@ void cfr_zero(int open[3]){
   cout << "p2_points : " << p2_points << endl;
   cout << "rand_points : " << rand_points << endl;
   cout << "end_points : " << end_points << endl;
+  cout << "win act:" << endl;
+  for(int i = 0; i < 6; i++) cout << win_points[i] << " ";
+  cout << endl;
+  cout << "lose move:" << endl;
+  for(int i = 0; i < 6; i++) cout << lose_points[i] << " ";
+  cout << endl;
   cout << "decision_points : " << endl;
   for(int i = 0; i < 4; i++) cout << decision_points[i] << " ";
   cout << endl;
@@ -73,11 +79,10 @@ int main(int argc, char *argv[]){
   b = atoi(argv[2]);
   c = atoi(argv[3]);
 
-  cout << "iteration : " << 0 << endl;
   cout << "open : " << a << " " << b << " " << c << endl;
 
   int open[3] = {a, b, c};
-  cfr_zero(open);
+  cfr_org(open);
 
   return 0;
 }

@@ -2,7 +2,7 @@
 COMMON_SRCS = loveletter.cpp rnd_action_sequense.cpp org_action_sequense.cpp
 
 # 共通で使用するヘッダファイル（依存関係チェック用）
-COMMON_HDRS = loveletter.hpp rnd_action_sequense.hpp org_action_sequense.hpp newcfr.hpp bf_position.hpp
+COMMON_HDRS = loveletter.hpp rnd_action_sequense.hpp org_action_sequense.hpp bf_position.hpp
 
 # 共通のプリプロセッサ定義（-Dフラグ）
 COMMON_DEFS = -DNDEBUG -DUSE_SAME_MOVE -DUSE_GOOD_MOVE -DNUSE_BAD_MOVE

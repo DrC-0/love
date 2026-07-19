@@ -1,8 +1,8 @@
 #ifndef BF_POSITION_HPP
 #include "bf_position.hpp"
 #endif
-std::set<std::string> only_history;
-std::map<std::string, bool> abs_history;
+bool cutting_w = false;
+bool cutting_l = false;
 void org_ds_put_hide_card(node &n);
 void org_ds_draw_p1_init(node &n);
 void org_ds_draw_p2_init(node &n);
@@ -11,7 +11,6 @@ void org_ds_play(node &n, int c);
 void org_ds_wizard(node &n);
 void org_ds_wizard_self(node &n);
 void org_ds_soldior(node &n); // 兵士用の状態分岐関数を追加
-void cnt_wl_decision(int open[3], const std::string& history);
 
 
 void org_ds_put_hide_card(node &n){
@@ -121,18 +120,53 @@ void org_ds_draw(node &n){
       p2_points++;
     }
     int c1, c2;
-    string key = n.org_his_p[n.turn].get_hash_value();
-    cnt_wl_decision(n.open, key);
-
-    w.infset_it = table_infset.find(key);
-    work_do_action w2 = w;
     c1 = n.hand1[0]; c2 = n.hand1[1];
+    string key = n.org_his_p[n.turn].get_hash_value();
+    bf_position bfp(n.open, key, false);
+    auto res_0win = use_win(bfp, c1);
+    auto res_1win = use_win(bfp, c2);
+    auto res_0lose = use_lose(bfp, c1);
+    auto res_1lose = use_lose(bfp, c2);
+    bool rm_bywin =  res_0win.first || res_1win.first || cutting_w;
+    bool rm_bylose = res_0lose.first || res_1lose.first || cutting_l;
+    bool con_cutting_w = cutting_w;
+    bool con_cutting_l = cutting_l;
+
+    decision_points[0]++;
+    if(!rm_bywin) decision_points[1]++;
+    if(!rm_bylose) decision_points[2]++;
+    if(!rm_bywin && !rm_bylose) decision_points[3]++;
+    if(res_0win.first && res_1win.first){
+      if(res_0win.second <= res_1win.second) win_points[res_0win.second]++;
+      else win_points[res_1win.second]++;
+    }
+    else if(res_0win.first) win_points[res_0win.second]++;
+    else if(res_1win.first) win_points[res_1win.second]++;
+    else win_points[0]++;
+    if(res_0lose.first && res_1lose.first){
+      if(res_0lose.second >= res_1lose.second) lose_points[res_0lose.second]++;
+      else lose_points[res_1lose.second]++;
+    }
+    else if(res_0lose.first) lose_points[res_0lose.second]++;
+    else if(res_1lose.first) lose_points[res_1lose.second]++;
+    else lose_points[0]++;
+
+    // w.infset_it = table_infset.find(key);
+    static auto dummy_it = table_infset.emplace("__dummy__", infset{}).first;
+    w.infset_it = dummy_it;
+    work_do_action w2 = w;
+    if(res_0win.first || res_1win.first) cutting_w = true;
+    if(res_0lose.first) cutting_l = true;
     n.do_action(5, 0, w);
     org_ds_play(n, c1);
     n.undo_action(5, c1, w);
+    if(res_0lose.first && !con_cutting_l) cutting_l = false;
+    if(res_1lose.first) cutting_l = true;
     n.do_action(5, 1, w2);
     org_ds_play(n, c2);
     n.undo_action(5, c2, w2);
+    if(res_1lose.first && !con_cutting_l) cutting_l = false;
+    if((res_0win.first || res_1win.first) && !con_cutting_w) cutting_w = false;
     return;
 }
 
@@ -150,27 +184,42 @@ void org_ds_play(node &n, int c){
             }
             // 兵士の推測行動用のInformation Setを作成
             string key = n.org_his_p[n.turn].get_hash_value();
-            cnt_wl_decision(n.open, key);
 
             work_do_action ds_w0;
             ds_w0.infset_it = table_infset.find(key);
+            static auto dummy_it = table_infset.emplace("__dummy__", infset{}).first;
+            ds_w0.infset_it = dummy_it;
 
             bool candidate[8] = {false, false, false, false, false, false, false, false};
             candidate[n.hide-1] = true;
             candidate[n.hand2-1] = true;
+            bf_position bfp(n.open, key, false);
             for(int i = 2; i < 9; i++){
               if(n.deck[i-1] > 0) candidate[i-1] = true;
               if(!candidate[i-1]) continue;
+              auto res_win = sol_win(bfp, i);
+              bool rm_bywin =  res_win.first || cutting_w;
+              bool rm_bylose = cutting_l;
+              bool con_cutting_w = cutting_w;
+
+              decision_points[0]++;
+              if(!rm_bywin) decision_points[1]++;
+              if(!rm_bylose) decision_points[2]++;
+              if(!rm_bywin && !rm_bylose) decision_points[3]++;
+              if(res_win.first) win_points[res_win.second]++;
+              else win_points[0]++;
 
               if(i == n.hand2){
                 // 推測が的中した場合は即座にゲーム終了
                 end_points++;
               } else {
                 // 不正解の場合は次のドローフェーズ(org_ds_soldior)へ移行
+                if(res_win.first) cutting_w = true;
                 work_do_action ds_w = ds_w0;
                 n.do_action(8, i, ds_w);
                 org_ds_soldior(n);
                 n.undo_action(8, i, ds_w);
+                if(res_win.first && !con_cutting_w) cutting_w = false;
               }
             }
             // 山札などの関係で選択肢が全くない場合
@@ -199,10 +248,42 @@ void org_ds_play(node &n, int c){
             p2_points++;
           }
           string key = n.org_his_p[n.turn].get_hash_value();
-          cnt_wl_decision(n.open, key);
+          bf_position bfp(n.open, key, false);
+          auto res_0win = wiz_win(bfp, 0);
+          auto res_1win = wiz_win(bfp, 1);
+          auto res_0lose = wiz_lose(bfp, 0);
+          auto res_1lose = wiz_lose(bfp, 1);
+          bool rm_bywin =  res_0win.first || res_1win.first || cutting_w;
+          bool rm_bylose = res_0lose.first || res_1lose.first || cutting_l;
+          bool con_cutting_w = cutting_w;
+          bool con_cutting_l = cutting_l;
+
+          decision_points[0]++;
+          if(!rm_bywin) decision_points[1]++;
+          if(!rm_bylose) decision_points[2]++;
+          if(!rm_bywin && !rm_bylose) decision_points[3]++;
+          if(res_0win.first && res_1win.first){
+            if(res_0win.second <= res_1win.second) win_points[res_0win.second]++;
+            else win_points[res_1win.second]++;
+          }
+          else if(res_0win.first) win_points[res_0win.second]++;
+          else if(res_1win.first) win_points[res_1win.second]++;
+          else win_points[0]++;
+          if(res_0lose.first && res_1lose.first){
+            if(res_0lose.second >= res_1lose.second) lose_points[res_0lose.second]++;
+            else lose_points[res_1lose.second]++;
+          }
+          else if(res_0lose.first) lose_points[res_0lose.second]++;
+          else if(res_1lose.first) lose_points[res_1lose.second]++;
+          else lose_points[0]++;
+          string action = oph.get_action((unsigned char)key[0]);
+
+          bool is_zero = char_to_action(action[0]) / 10 == 0;
 
           work_do_action ds_w0;
-          ds_w0.infset_it = table_infset.find(key);
+          // ds_w0.infset_it = table_infset.find(key);
+          static auto dummy_it = table_infset.emplace("__dummy__", infset{}).first;
+          ds_w0.infset_it = dummy_it;
           if(n.dsum() == 0){ end_points++;
             return;
           } else {
@@ -211,29 +292,53 @@ void org_ds_play(node &n, int c){
                 rand_points++;
                 for(int i = 1; i < 9; i++){
                   if(n.deck[i-1] == 0) { continue; }
+                  if(res_0win.first && !is_zero) cutting_w = true;
+                  if(res_1win.first && is_zero) cutting_w = true;
+                  if(res_0lose.first && !is_zero) cutting_l = true;
+                  if(res_1lose.first && is_zero) cutting_l = true;
                   work_do_action ds_w2 = ds_w0;
                   n.do_action(6, i, ds_w2);
                   org_ds_wizard(n);
                   n.undo_action(6, i, ds_w2);
+                  if(res_0win.first && !is_zero && !con_cutting_w) cutting_w = false;
+                  if(res_1win.first && is_zero && !con_cutting_w) cutting_w = false;
+                  if(res_0lose.first && !is_zero && !con_cutting_l) cutting_l = false;
+                  if(res_1lose.first && is_zero && !con_cutting_l) cutting_l = false;
                 }
               } else {
                 end_points++;
               }
             } else {
               // バリア展開時は org_his 構造に沿って (6, 0) を実行する形に修正
+              if(res_0win.first && !is_zero) cutting_w = true;
+              if(res_1win.first && is_zero) cutting_w = true;
+              if(res_0lose.first && !is_zero) cutting_l = true;
+              if(res_1lose.first && is_zero) cutting_l = true;
               work_do_action ds_ww = ds_w0;
               n.do_action(6, 0, ds_ww);
               org_ds_wizard(n);
               n.undo_action(6, 0, ds_ww);
+              if(res_0win.first && !is_zero && !con_cutting_w) cutting_w = false;
+              if(res_1win.first && is_zero && !con_cutting_w) cutting_w = false;
+              if(res_0lose.first && !is_zero && !con_cutting_l) cutting_l = false;
+              if(res_1lose.first && is_zero && !con_cutting_l) cutting_l = false;
             }
             if(n.hand1[0] != 8){
               rand_points++;
               for(int i = 1; i < 9; i++){
                 if(n.deck[i-1] == 0) { continue; }
+                if(res_0win.first && is_zero) cutting_w = true;
+                if(res_1win.first && !is_zero) cutting_w = true;
+                if(res_0lose.first && is_zero) cutting_l = true;
+                if(res_1lose.first && !is_zero) cutting_l = true;
                 work_do_action ds_w3 = ds_w0;
                 n.do_action(7, i, ds_w3);
                 org_ds_wizard_self(n);
                 n.undo_action(7, i, ds_w3);
+                if(res_0win.first && is_zero && !con_cutting_w) cutting_w = false;
+                if(res_1win.first && !is_zero && !con_cutting_w) cutting_w = false;
+                if(res_0lose.first && is_zero && !con_cutting_l) cutting_l = false;
+                if(res_1lose.first && !is_zero && !con_cutting_l) cutting_l = false;
               }
             } else {
               end_points++;
@@ -314,60 +419,3 @@ void org_ds_wizard_self(node &n){
     return;
 }
 
-
-void cnt_wl_decision(int open[3], const std::string& history){
-  bf_position bfp(open, history, false);
-  action_cnt += action_count(bfp);
-
-  auto res_win = is_win(bfp);
-  if(res_win.first > 0){
-    win_act[res_win.second]++;
-    abs_history.insert({history, true});
-  } else {
-    win_act[0]++;
-  }
-
-  auto lose_actions = is_lose(bfp);
-  int act_cnt = action_count(bfp);
-  int able_act = act_cnt - lose_actions.size();
-  lose_move[0] += able_act;
-  if(able_act == 1 && act_cnt > 1) only_history.insert(history);
-
-  for(const auto& lose_action : lose_actions){
-    lose_move[lose_action.second]++;
-
-    if(lose_action.first == 9){
-      output_actions_history(history, false);
-    } else {
-      string action = oph.get_action((unsigned char)history[0]);
-      int firstp = char_to_action(action[0]) / 10;
-      auto actions = able_actions(bfp, lose_action.first, firstp == 2);
-
-      for(int act : actions){
-        string new_hist = history + string(1, action2char(act, false));
-        abs_history.insert({new_hist, false});
-      }
-    }
-  }
-
-  bool rm_bywin = false;
-  bool rm_bylose = false;
-
-  auto ut = abs_history.upper_bound(history);
-  if(ut != abs_history.begin()){
-    auto ut_prev = std::prev(ut);
-    if(history.starts_with(ut_prev->first)){
-      if(ut_prev->second) rm_bywin = true;
-      else rm_bylose = true;
-    }
-  }
-
-  if(!rm_bywin && !rm_bylose && only_history.contains(history)){
-    rm_bylose = true;
-  }
-
-  decision_points[0]++;
-  if(!rm_bywin) decision_points[1]++;
-  if(!rm_bylose) decision_points[2]++;
-  if(!rm_bywin && !rm_bylose) decision_points[3]++;
-}

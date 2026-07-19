@@ -70,14 +70,18 @@ void cnt_abs(int open[3], string history){
     }
     else {
       // 特定のアクションの先が必敗の場合（元コードのロジックを忠実に再現）
-      string action;
-      action = rph.get_action((unsigned char)history[0]);
+      string action = rph.get_action((unsigned char)history[0]);
 
       int firstp = char_to_action(action[0]) / 10;
       auto actions = able_actions(bfp, lose_action.first, firstp == 2);
 
       for (int act : actions) {
-        string new_hist = history + string(1, action2char(act, true));
+        string new_hist;
+        if(bfp.is_wiz_choice){
+          new_hist = history.substr(0, history.length() - 1) + string(1, action2char(act, true));
+        } else {
+          new_hist = history + string(1, action2char(act, true));
+        }
 
         // それぞれの new_hist を挿入
         abs_history.insert({new_hist, false});
