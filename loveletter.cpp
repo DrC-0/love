@@ -29,7 +29,7 @@ extern int br_player;
 extern bool org_switch;
 
 static Rnd_Perfect_Hash rph;
-static Org_Perfect_Hash oph; 
+static Org_Perfect_Hash oph;
 
 char action_to_char(int action, int card){
   char c = (1 << 7) | (action << 3) | card;
@@ -316,7 +316,7 @@ node::node(const std::string &h, bool rnd, const int input_open[3]) : depth (0),
               }
               */
             }
-          } 
+          }
         }else if(c2a2 + 1 == 2 && barrier2 == false){
           int c2t = char_to_twonum(action[1]);
           int c2t2 = c2t % 10;
@@ -899,7 +899,7 @@ void node::do_action(int a, int c, work_do_action &w){
       break;
   }
   depth++;
-  
+
   if(a == 8){
     addstr[0][naddstr[0]] = static_cast<char>(NULL);
     if(strlen(addstr[0]) > 0) org_his.push(&(addstr[0][0]), strlen(addstr[0]));
@@ -918,7 +918,7 @@ void node::do_action(int a, int c, work_do_action &w){
     if(strlen(addstr[2]) > 0) rnd_his_p[1].push(&(addstr[2][0]), strlen(addstr[2]));
     if(strlen(addstr[2]) > 0) org_his_p[1].push(&(addstr[2][0]), strlen(addstr[2]));
   }
-  
+
   //print_node();
   //bool valid = valid_data();
   //if(!valid) cout << "do_action : " << a << " card : " << c << endl;
@@ -1030,8 +1030,8 @@ void node::undo_action(int a, int c, work_do_action &w){
       if(c == w.used_open1) open1 = c;
       break;
     case 6: //wizard
-      assert(0 < c && c < 9);
       if(barrier2 == false){
+        assert(0 < c && c < 9);
         rnd_his.erase(); rnd_his_p[0].erase(); rnd_his_p[1].erase();
         org_his.erase(); org_his_p[0].erase(); org_his_p[1].erase();
         char addstr[16];

@@ -38,7 +38,7 @@ void watch_cfr(int open[3]){
 
   for(map<string, infset>::iterator it = table_infset.begin(); it != table_infset.end();++it){
     bf_position bfp(open, it->first);
-    if(bfp.hand0[1] == 0){
+    if(bfp.hand_s[1] == 0){
         cout << "0";
         if(!it->second.wizard)
             bfp.print();
