@@ -1,4 +1,4 @@
 # git blame から除外するコミット（整形のみで内容の変更がないもの）
 # 有効化: git config blame.ignoreRevsFile .git-blame-ignore-revs
-# clang-formatによる全体整形
-d459519387b41daf87f9d0e4300150245678ca2d
+# clang-formatの導入と全体整形
+26f3bec39bcf49c19e02309d77269971c5a82bc2
