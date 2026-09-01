@@ -1,11 +1,11 @@
-//CFR
-#include<iostream>
-#include<map>
-#include<cstdlib>
-#include<vector>
-#include<string>
-#include<cassert>
-#include<numeric>
+// CFR
+#include <iostream>
+#include <map>
+#include <cstdlib>
+#include <vector>
+#include <string>
+#include <cassert>
+#include <numeric>
 
 #include "rnd_action_sequense.hpp"
 #include "rnd_action.hpp"
@@ -36,11 +36,13 @@ static Org_Perfect_Hash oph;
 
 #include "make_infset.hpp"
 
-void cfr_org(int open[3]){
+void cfr_org(int open[3]) {
   node n_ds(open);
   rand_points++;
-  for(int i = 1; i < 9; i++){
-    if(n_ds.deck[i-1] == 0) { continue; }
+  for(int i = 1; i < 9; i++) {
+    if(n_ds.deck[i - 1] == 0) {
+      continue;
+    }
     work_do_action ds_w;
     n_ds.do_action(1, i, ds_w);
     org_ds_put_hide_card(n_ds);
@@ -64,7 +66,7 @@ void cfr_org(int open[3]){
   return;
 }
 
-int main(int argc, char *argv[]){
+int main(int argc, char *argv[]) {
   int a, b, c;
   a = atoi(argv[1]);
   b = atoi(argv[2]);
