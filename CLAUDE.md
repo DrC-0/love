@@ -50,12 +50,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - 選択ノード (`is_sol_choice` / `is_wiz_choice`) では必ず `hand_s[1] == 0`。また相手が `barrier_e` のときは宣言・対象選択自体が発生しないので選択ノードにならない。
 - 返り値の規約: `is_win` / `is_terminated_win` は `{使用カード(または真偽), 勝利までの手数}`。`is_terminated_win` の `{-1, 0}` は「終局判定に該当せず」。`is_lose` の `9` は「ルール上すでに敗北」。
 
-## コード整形
+## コード整形と静的解析
 
 - 整形は clang-format 14（Ubuntu 22.04 の apt 版）＋直下の `.clang-format`。バージョンが違うと結果が変わるので 14 系を使う。
 - 全体整形は一度きり済み。以後は**変更した行だけ**整形する: `git add -p && git clang-format`（`-i` 相当の上書きになる）。
 - `org_action.hpp` / `rnd_action.hpp` は gperf の生成物なので整形対象外。
 - `git blame` から整形コミットを除外するには一度だけ `git config blame.ignoreRevsFile .git-blame-ignore-revs` を実行する。
+- 警告フラグは Makefile の `COMMON_WARN`（`-Wall -Wextra -Wshadow=local`）。`-Wshadow=local` はコンストラクタ引数がメンバを隠す書き方を許しつつ、ローカル同士のシャドーイングだけを警告する。新しい警告を出したまま放置しない。
+- `make cppcheck` で静的解析（cppcheck 2.7）。抑制は理由を添えて `.cppcheck-suppressions` に、1箇所だけなら該当行の直前に `// cppcheck-suppress <id>` を書く。
 
 ## Git
 

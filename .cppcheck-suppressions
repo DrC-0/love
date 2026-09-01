@@ -1,0 +1,26 @@
+# cppcheck の抑制リスト。行頭 # はコメント。
+# 個別に無視したい箇所にはソース側に // cppcheck-suppress <id> を書く(--inline-suppr)。
+
+# 標準ヘッダを追いに行かないことによる情報メッセージ
+missingInclude
+missingIncludeSystem
+
+# 情報集合の走査で使うカーソル変数(head)は、最後の代入が読まれない書き方になっている
+unreadVariable:all_elements.hpp
+unreadVariable:all_elements_rnd.hpp
+
+# シャドーイングはコンパイラの -Wshadow=local 側で見ているため重複を避ける
+shadowVariable
+shadowArgument
+shadowFunction
+
+# get_hash は gperf 生成の純粋関数で副作用がないため、assert 内で呼んでも問題ない
+assertWithSideEffect
+
+# 既存コード全体に及ぶ書き方の好みの指摘
+variableScope
+constVariable
+passedByValue
+postfixOperator
+useStlAlgorithm
+noExplicitConstructor
