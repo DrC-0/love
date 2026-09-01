@@ -21,8 +21,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## ビルドと実行
 
 - C++20 / g++ / Makefile のみ。`make <target>`。
-- 変更後は最低限 `make cfrorg win comp test` が通ることを確認する（実行までは不要）。
-- `make watch` は現状リンクエラー（`watch_cfr.cpp` が `cfr_switch` を定義していない）。既知の問題で、変更のせいではない。
+- 変更後は `make cfr cfr0 cfrorg brrnd brorg win` が通ることを確認する（実行までは不要）。
+- `watch` と `end` は現状ビルドできない既知の問題（`watch_cfr.cpp` が `cfr_switch` を定義していない / `bs_set.hpp` が `int[2]` の `sol_flag_s` を `0` と比較している）。`make all` は通らないので上記6ターゲットを個別に指定する。
 - 通常ビルドは `-DNDEBUG` なので `assert` は無効。assert を効かせたいときは `make cfrorgd`（出力名は `cfrorg` のまま）。
 - 実行時は部分ゲームの3枚を引数で渡す: `./cfrorg 5 5 7`、`./win 4 4 6`。
 - 自動テストは存在しない。`test.cpp` は gitignore 済みの手動デバッグ用スクラッチで、`main` を書き換えて使う。
@@ -49,6 +49,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - 推論フラグの意味: `lt5_*` = 大臣(7)を出したので残りの手札は5未満、`not7_*` = 魔術師(5)を出したので大臣(7)は持っていない、`sol_*` = 兵士で宣言されて外れたカード。
 - 選択ノード (`is_sol_choice` / `is_wiz_choice`) では必ず `hand_s[1] == 0`。また相手が `barrier_e` のときは宣言・対象選択自体が発生しないので選択ノードにならない。
 - 返り値の規約: `is_win` / `is_terminated_win` は `{使用カード(または真偽), 勝利までの手数}`。`is_terminated_win` の `{-1, 0}` は「終局判定に該当せず」。`is_lose` の `9` は「ルール上すでに敗北」。
+
+## コード整形
+
+- 整形は clang-format 14（Ubuntu 22.04 の apt 版）＋直下の `.clang-format`。バージョンが違うと結果が変わるので 14 系を使う。
+- 全体整形は一度きり済み。以後は**変更した行だけ**整形する: `git add -p && git clang-format`（`-i` 相当の上書きになる）。
+- `org_action.hpp` / `rnd_action.hpp` は gperf の生成物なので整形対象外。
+- `git blame` から整形コミットを除外するには一度だけ `git config blame.ignoreRevsFile .git-blame-ignore-revs` を実行する。
 
 ## Git
 

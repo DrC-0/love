@@ -1,8 +1,8 @@
 #ifndef FIRRST_HAND_OPEN_HPP
 #define FIRRST_HAND_OPEN_HPP
 #include "loveletter.hpp"
-node::first_hand_open(int trash[8], int hand1, int hand2, bool barrier2, int open[3]){
-  for(int i = 0; i < 8; i++){
+node::first_hand_open(int trash[8], int hand1, int hand2, bool barrier2, int open[3]) {
+  for(int i = 0; i < 8; i++) {
     deck[i] = max_num[i] - trash[i];
   }
   this.hand1[0] = hand1;

@@ -1,13 +1,13 @@
-#include<iostream>
-#include<fstream>
-#include<map>
-#include<cstdlib>
-#include<random>
-#include<string>
-#include<numeric>
-#include<algorithm>
-#include<set>
-#include<cassert>
+#include <iostream>
+#include <fstream>
+#include <map>
+#include <cstdlib>
+#include <random>
+#include <string>
+#include <numeric>
+#include <algorithm>
+#include <set>
+#include <cassert>
 
 #include "rnd_action_sequense.hpp"
 #include "rnd_action.hpp"
@@ -42,42 +42,40 @@ int hist_max = 0;
 #include "rnd_make_infset.hpp"
 #include "bf_position.hpp"
 
-
-void cnt_abs(int open[3], string history){
+void cnt_abs(int open[3], string history) {
   bf_position bfp(open, history);
   auto res_win = is_win(bfp);
 
-  if (res_win.first > 0) {
+  if(res_win.first > 0) {
     win_move[res_win.second]++;
     abs_history.insert({history, true});
 
-    if (res_win.second > hist_max) {
+    if(res_win.second > hist_max) {
       hist_max = res_win.second;
       max_history = history;
     }
-  }else win_move[0]++;
+  } else win_move[0]++;
 
   auto lose_actions = is_lose(bfp);
   int act_cnt = action_count(bfp);
   int able_act = act_cnt - lose_actions.size();
-  lose_move[0] += able_act ;
+  lose_move[0] += able_act;
   if(able_act == 1 && act_cnt > 1) only_history.insert(history);
-  for(const auto& lose_action : lose_actions){
+  for(const auto& lose_action : lose_actions) {
     lose_move[lose_action.second]++;
 
-    if (lose_action.first == 9) {
+    if(lose_action.first == 9) {
       output_actions_history(history, true);
-    }
-    else {
+    } else {
       // 特定のアクションの先が必敗の場合（元コードのロジックを忠実に再現）
       string action = rph.get_action((unsigned char)history[0]);
 
       int firstp = char_to_action(action[0]) / 10;
       auto actions = able_actions(bfp, lose_action.first, firstp == 2);
 
-      for (int act : actions) {
+      for(int act : actions) {
         string new_hist;
-        if(bfp.is_wiz_choice){
+        if(bfp.is_wiz_choice) {
           new_hist = history.substr(0, history.length() - 1) + string(1, action2char(act, true));
         } else {
           new_hist = history + string(1, action2char(act, true));
@@ -90,11 +88,13 @@ void cnt_abs(int open[3], string history){
   }
 }
 
-void infset_iswin(int open[3]){
+void infset_iswin(int open[3]) {
   node n_rnd_ds(open);
   rand_points++;
-  for(int i = 1; i < 9; i++){
-    if(n_rnd_ds.deck[i-1] == 0) { continue; }
+  for(int i = 1; i < 9; i++) {
+    if(n_rnd_ds.deck[i - 1] == 0) {
+      continue;
+    }
     work_do_action ds_w;
     n_rnd_ds.do_action(1, i, ds_w);
     rnd_ds_put_hide_card(n_rnd_ds);
@@ -103,7 +103,7 @@ void infset_iswin(int open[3]){
   }
   cout << "End Rnd_DS." << endl;
 
-  for(map<string, infset>::iterator it = table_infset.begin(); it != table_infset.end();++it){
+  for(map<string, infset>::iterator it = table_infset.begin(); it != table_infset.end(); ++it) {
     bf_position bfp(open, it->first);
     action_cnt += action_count(bfp);
     cnt_abs(open, it->first);
@@ -123,19 +123,20 @@ void infset_iswin(int open[3]){
 
   // 必勝判定・必敗判定を導入した際にめぐる必要のあるinfsetの数をカウント
   int infset_cnt[4] = {0, 0, 0, 0};
-  for(map<string, infset>::iterator it = table_infset.begin(); it != table_infset.end();++it){
-    bool rm_bywin = false; bool rm_bylose = false;
+  for(map<string, infset>::iterator it = table_infset.begin(); it != table_infset.end(); ++it) {
+    bool rm_bywin = false;
+    bool rm_bylose = false;
     // abs_historyに含まれていたら必勝あるいは必敗
     auto ut = abs_history.upper_bound(it->first);
-    if (ut != abs_history.begin()) {
+    if(ut != abs_history.begin()) {
       auto ut_prev = std::prev(ut);
-      if (it->first.starts_with(ut_prev->first)) {
+      if(it->first.starts_with(ut_prev->first)) {
         if(ut_prev->second) rm_bywin = true;
         else rm_bylose = true;
       }
     }
     // 必敗の行動があり、行動が一つ(以下)の場合
-    if(!rm_bywin && !rm_bylose && only_history.contains(it->first)){
+    if(!rm_bywin && !rm_bylose && only_history.contains(it->first)) {
       rm_bylose = true;
     }
     infset_cnt[0]++;
@@ -151,8 +152,8 @@ void infset_iswin(int open[3]){
   save_bin_abs(filename, abs_history, only_history);
 }
 
-int main(int argc, char *argv[]){
-  int a,b,c;
+int main(int argc, char* argv[]) {
+  int a, b, c;
   a = atoi(argv[1]);
   b = atoi(argv[2]);
   c = atoi(argv[3]);
