@@ -1,0 +1,24 @@
+# clang-format 14 (Ubuntu 22.04 の apt 版) を前提とした設定。
+# バージョンが変わると整形結果も変わるため、更新する場合は再度全体整形すること。
+Language: Cpp
+BasedOnStyle: LLVM
+
+# 既存コードの書き方に合わせた項目
+ColumnLimit: 0            # 改行位置は書き手に任せる(自動折り返しをしない)
+IndentWidth: 2
+UseTab: Never
+SpaceBeforeParens: Never  # if(...) for(...)
+BreakBeforeBraces: Attach # 「{」は同じ行
+AllowShortIfStatementsOnASingleLine: AllIfsAndElse  # if(x) return; / } else x = 1;
+AllowShortLoopsOnASingleLine: true
+AllowShortBlocksOnASingleLine: Empty
+AllowShortFunctionsOnASingleLine: Empty
+AllowShortCaseLabelsOnASingleLine: false
+AlignTrailingComments: false
+ConstructorInitializerIndentWidth: 2
+NamespaceIndentation: None
+DerivePointerAlignment: true  # 「T& x」「T &x」はファイルごとの流儀を継承
+
+# インクルード順に依存があるため絶対に並べ替えない
+# (cfr_org.cpp はグローバル変数を定義してから make_infset.hpp を include する等)
+SortIncludes: false
