@@ -172,16 +172,16 @@ void compare_abs_cfr(int open[3]) {
   for(auto& history : all_history) {
     output_actions_history(history, true);
     vector<string> m;
-    node n(history, true, open);
-    string key = n.org_his_p[0].get_hash_value();
-    all_exp_reward(key, open, m, -1, 0);
+    node hist_n(history, true, open);
+    string hist_key = hist_n.org_his_p[0].get_hash_value();
+    all_exp_reward(hist_key, open, m, -1, 0);
     // map<string, double>::iterator table_exp_reward_it;
     // table_exp_reward_it = table_exp_reward.find(key);
     // cout << "exp_reward : " << table_exp_reward_it->second << endl;
   }
 }
 
-int main(int argc, char* argv[]) {
+int main(int, char* argv[]) {
   int a, b, c;
   a = atoi(argv[1]);
   b = atoi(argv[2]);

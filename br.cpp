@@ -308,7 +308,7 @@ void best_response(bool brp1, int t, int open[3]) {
   return;
 }
 
-int main(int argc, char *argv[]) {
+int main(int, char *argv[]) {
   int p, t, a, b, c;
   p = atoi(argv[1]);
   t = atoi(argv[2]);
