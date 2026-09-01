@@ -9,6 +9,7 @@ const int max_num[8] = {5, 2, 2, 2, 2, 1, 1, 1};
 #include<iostream>
 #include<algorithm>
 #include<utility>
+#include<cstdlib>
 
 #include "rnd_action.hpp"
 #include "org_action.hpp"
@@ -43,7 +44,7 @@ struct bf_position{
   int sol_flag_s[2];//7bit
   int sol_flag_e[2];//7bit
   int hand_s[2];//6bit
-  int trash[8];//12bit
+  int trash[8];//14bit
   bf_position()
     : is_my_turn(false), is_sol_choice(false), is_wiz_choice(false), not7_flag_s(false), not7_flag_e(false),
       barrier_s(false), barrier_e(false), lt5_flag_s(false), lt5_flag_e(false), open_flag_s(0), open_flag_e(0),
@@ -114,6 +115,12 @@ std::vector<std::pair<int, int>> is_lose(const bf_position& bfp);
 std::pair<bool, int> use_lose(const bf_position& bfp, int card);
 std::pair<bool, int> wiz_lose(const bf_position& bfp, bool to0p);
 std::vector<int> able_actions(const bf_position& bfp, int card, bool is_second_player);
+[[noreturn]] void exit_with_print(const bf_position& bfp, const char* context);
+void validate_hand_e_candidate(const bf_position& bfp, const char* context);
+int action_count(const bf_position& bfp);
+bool is_openhand_loveletter(const bf_position& bfp);
+bool is_openhand_loveletter_hisp(int open[3], std::string history, bool rnd);
+bool is_openhand_loveletter_his(int open[3], std::string his0, std::string his1, bool rnd);
 
 int trash_and_hand_s(const int i, const int hand[2], const int trash[8]){
   return trash[i] + (hand[0]  == i + 1 ? 1 : 0) + (hand[1]  == i + 1 ? 1 : 0);
@@ -228,11 +235,14 @@ bf_position::bf_position(int open[3], string history, bool rnd = true): is_my_tu
         *this = reset_flag_by_use(*this, true, num2 + 1);
 
         if(num2 + 1 == 1){
-          if(!barrier_e && action.size() > 1){
-            int c2t = char_to_twonum(action[1]);
-            int choice = (c2t % 10) + 1;
-            if(choice > 1) add_sol_e(choice);
-          }else is_sol_choice = true;
+          //相手が保護されている場合、宣言自体が行われないため選択ノードにはならない
+          if(!barrier_e){
+            if(action.size() > 1){
+              int c2t = char_to_twonum(action[1]);
+              int choice = (c2t % 10) + 1;
+              if(choice > 1) add_sol_e(choice);
+            }else is_sol_choice = true;
+          }
         } else if(num2 + 1 == 2 && !barrier_e){
           int c2t = char_to_twonum(action[1]);
           open_flag_e = (c2t % 10) + 1;
@@ -470,11 +480,11 @@ bf_position reset_flag_by_use(const bf_position& bfp, bool to_self, int card){
     if(bfp.open_flag_s > 0 && bfp.open_flag_s == card){
       next_bfp.open_flag_s = 0;
     }
-    if(bfp.sol_flag_s[0] != 0 && bfp.sol_flag_s[0] != card){
-      next_bfp.sol_flag_s[0] = bfp.sol_flag_e[1];
+    if(bfp.sol_flag_s[1] != 0 && bfp.sol_flag_s[1] != card){
       next_bfp.sol_flag_s[1] = 0;
     }
-    if(bfp.sol_flag_s[1] != 0 && bfp.sol_flag_s[1] != card){
+    if(bfp.sol_flag_s[0] != 0 && bfp.sol_flag_s[0] != card){
+      next_bfp.sol_flag_s[0] = next_bfp.sol_flag_s[1];
       next_bfp.sol_flag_s[1] = 0;
     }
     if(bfp.lt5_flag_s && card < 5){
@@ -486,11 +496,11 @@ bf_position reset_flag_by_use(const bf_position& bfp, bool to_self, int card){
     if(bfp.open_flag_e > 0 && bfp.open_flag_e == card){
       next_bfp.open_flag_e = 0;
     }
-    if(bfp.sol_flag_e[0] != 0 && bfp.sol_flag_e[0] != card){
-      next_bfp.sol_flag_e[0] = bfp.sol_flag_e[1];
+    if(bfp.sol_flag_e[1] != 0 && bfp.sol_flag_e[1] != card){
       next_bfp.sol_flag_e[1] = 0;
     }
-    if(bfp.sol_flag_e[1] != 0 && bfp.sol_flag_e[1] != card){
+    if(bfp.sol_flag_e[0] != 0 && bfp.sol_flag_e[0] != card){
+      next_bfp.sol_flag_e[0] = next_bfp.sol_flag_e[1];
       next_bfp.sol_flag_e[1] = 0;
     }
     if(bfp.lt5_flag_e && card < 5){
@@ -533,6 +543,8 @@ std::pair<int, int> is_win(const bf_position& bfp) {
   if(bfp.hand_s[1] == 0 && bfp.is_sol_choice){
     bool has_true = false;
     int min_t = 1e9;
+    // カード1は宣言対象外だが、候補として残っていても異常ではない。
+    validate_hand_e_candidate(bfp, "sol");
     for(int i = 1; i < 8; i++){
       if(bfp.hand_e(i)){
         auto res = sol_win(bfp, i+1);
@@ -609,7 +621,8 @@ std::pair<bool, int> use_win(const bf_position& bfp, int card){
   } else if(bfp.hand_s[1] == card){
     next_bfp.hand_s[1] = 0;
   }else {
-    exit(1);
+    cerr << "Error: card not in hand" << endl;
+    exit(2);
   }
 
   next_bfp = reset_flag_by_use(next_bfp, true, card);
@@ -621,8 +634,11 @@ std::pair<bool, int> use_win(const bf_position& bfp, int card){
     return {res.first, res.first ? res.second + 1 : 0};
   }
   else if(card == 1){
+    next_bfp.is_sol_choice = true;
     bool has_true = false;
     int min_t = 1e9;
+    // カード1は宣言対象外だが、候補として残っていても異常ではない。
+    validate_hand_e_candidate(bfp, "sol");
     for(int i = 1; i < 8; i++){
       if(bfp.hand_e(i)){
         auto res = sol_win(next_bfp, i+1);
@@ -632,7 +648,6 @@ std::pair<bool, int> use_win(const bf_position& bfp, int card){
         }
       }
     }
-    //相手の手札候補がないはずないため省略
     return {has_true, has_true ? min_t + 1 : 0};
   }else if(card == 2){
     bool all_true = true;
@@ -668,6 +683,7 @@ std::pair<bool, int> use_win(const bf_position& bfp, int card){
     auto res = enemy_turn_win(next_bfp);
     return {res.first, res.first ? res.second + 1 : 0};
   }else if(card == 5){
+    next_bfp.is_wiz_choice = true;
     auto res_self = wiz_win(next_bfp, true);
     auto res_enemy = wiz_win(next_bfp, false);
 
@@ -801,7 +817,7 @@ std::pair<bool, int> enemy_turn_win(const bf_position& bfp) {
           int gene_max_f = -1;
 
           for(int j = 0; j < 8; j++){
-            if(gene_all_true) break;
+            if(!gene_all_true) break;
             if(next_bfp.hand_e(j)){
               struct bf_position next_bfp2 = next_bfp;
               next_bfp2.hand_s[0] = j + 1;
@@ -823,9 +839,19 @@ std::pair<bool, int> enemy_turn_win(const bf_position& bfp) {
         }
       }
       else if(i + 1 == 7){
-        int open_card = bfp.open_e();
-        if(open_card >= 5 && open_card != 7) continue;
         next_bfp.lt5_flag_e = true;
+
+        // 7 を使った相手は、使用後も 5 未満のカードを手札に残している必要がある。
+        // deck_or_hand_e() に 7 自身が存在するだけでは、この枝は成立しない。
+        bool has_remaining_hand_candidate = false;
+        for(int j = 0; j < 8; j++){
+          if(next_bfp.hand_e(j)){
+            has_remaining_hand_candidate = true;
+            break;
+          }
+        }
+        if(!has_remaining_hand_candidate) continue;
+
         auto res = draw_win(next_bfp);
         if(res.first) max_f = std::max(max_f, res.second);
         else all_true = false;
@@ -861,7 +887,7 @@ std::pair<bool, int> draw_win(const bf_position& bfp) {
       auto res0 = use_win(next_bfp, next_bfp.hand_s[0]);
 
       bool or_first = false;
-      int or_second = -1;
+      int or_second = 0;
 
       // 手札の2枚が違うカードなら、もう一方も評価する
       if (next_bfp.hand_s[0] != i + 1) {
@@ -869,11 +895,12 @@ std::pair<bool, int> draw_win(const bf_position& bfp) {
 
         if(res0.first){
           or_first = true;
-          or_second = std::min(or_second, res0.second);
+          or_second = res0.second;
         }
         if(res1.first){
+          if(!or_first) or_second = res1.second;
+          else or_second = std::min(or_second, res1.second);
           or_first = true;
-          or_second = std::min(or_second, res1.second);
         }
       } else {
         // 同じカードなら片方の結果をそのまま使う
@@ -903,17 +930,23 @@ bf_position draw(const bf_position& bfp, int draw_card){
 }
 
 std::pair<bool, int> sol_win(const bf_position& bfp, int card) {
-  if(bfp.open_e() == card) return {true, 1};
+  if(!bfp.is_sol_choice) exit_with_print(bfp, "sol_win called when not in sol_choice state");
+  if(bfp.open_e() == card && !bfp.barrier_e) return {true, 1};
   struct bf_position next_bfp = bfp;
+  // 宣言が確定したので、保留中の兵士選択を解除する。
+  next_bfp.is_sol_choice = false;
   next_bfp.add_sol_e(card);
   auto res = enemy_turn_win(next_bfp);
   return {res.first, res.first ? res.second + 1 : 0};
 }
 
 std::pair<bool, int> wiz_win(const bf_position& bfp, bool to0p) {
-    if(!to0p && bfp.open_e() == 7 && !bfp.barrier_e) return {true, 1};
+    if(!bfp.is_wiz_choice) exit_with_print(bfp, "wiz_win called when not in wiz_choice state");
+    if(!to0p && bfp.open_e() == 8 && !bfp.barrier_e) return {true, 1};
     if(to0p && bfp.hand_s[0] == 7) return {false, 0};
-    std::vector<bf_position> preds = ef_wizard(bfp, to0p);
+    struct bf_position next_bfp = bfp;
+    next_bfp.is_wiz_choice = false;
+    std::vector<bf_position> preds = ef_wizard(next_bfp, to0p);
     if (preds.empty()) return {false, 0};
 
     int local_max_f = -1;
@@ -941,6 +974,7 @@ std::vector<bf_position> ef_wizard(const bf_position& bfp, bool to_0p){
       for(int i = 0; i < 8; i++){
         if(bfp.deck(i)){
           bf_position next_bfp = bfp;
+          next_bfp.is_wiz_choice = false;
           next_bfp.is_my_turn = !bfp.is_my_turn;
           next_bfp.trash[bfp.hand_s[0]-1] += 1;//手札捨てる
           next_bfp.hand_s[0] = i + 1;//手札引く
@@ -951,12 +985,16 @@ std::vector<bf_position> ef_wizard(const bf_position& bfp, bool to_0p){
       return bfps;
     } else {
       if(bfp.barrier_e){
-        bfps.push_back(bfp);
+        bf_position next_bfp = bfp;
+        next_bfp.is_wiz_choice = false;
+        bfps.push_back(next_bfp);
         return bfps;
       }
+      // validate_hand_e_candidate(bfp, "wiz");
       for(int i = 0; i < 8; i++){
         if(bfp.hand_e(i) && i + 1 != 8){
           bf_position next_bfp = bfp;
+          next_bfp.is_wiz_choice = false;
           next_bfp.trash[i] += 1;
           next_bfp.is_my_turn = !bfp.is_my_turn;
           next_bfp.reset_flag(false);//相手のフラグリセット
@@ -968,12 +1006,15 @@ std::vector<bf_position> ef_wizard(const bf_position& bfp, bool to_0p){
   } else {//is_my_turn == true
     if(to_0p){
       if(bfp.barrier_s){
-        bfps.push_back(bfp);
+        bf_position next_bfp = bfp;
+        next_bfp.is_wiz_choice = false;
+        bfps.push_back(next_bfp);
         return bfps;
       }
       for(int i = 0; i < 8; i++){
         if(bfp.deck(i)){
           bf_position next_bfp = bfp;
+          next_bfp.is_wiz_choice = false;
           next_bfp.is_my_turn = !bfp.is_my_turn;
           next_bfp.trash[bfp.hand_s[0]-1] += 1;//手札捨てる
           next_bfp.hand_s[0] = i + 1;//手札引く
@@ -986,9 +1027,11 @@ std::vector<bf_position> ef_wizard(const bf_position& bfp, bool to_0p){
       if(bfp.open_e() == 8){
         return bfps;
       }
+      // validate_hand_e_candidate(bfp, "wiz");
       for(int i = 0; i < 8; i++){
         if(bfp.hand_e(i) && i + 1 != 8){
           bf_position next_bfp = bfp;
+          next_bfp.is_wiz_choice = false;
           next_bfp.is_my_turn = !bfp.is_my_turn;
           next_bfp.trash[i] += 1;
           next_bfp.reset_flag(false);//相手のフラグリセット
@@ -1003,6 +1046,7 @@ std::vector<bf_position> ef_wizard(const bf_position& bfp, bool to_0p){
 void bf_position::print() const{
   // cout << "depth : " << depth << endl;
   cout << "barrier_s : " << barrier_s << " barrier_e : " << barrier_e << " is_my_turn : " << is_my_turn << endl;
+  cout << "is_sol_choice : " << is_sol_choice << " is_wiz_choice : " << is_wiz_choice << " deck : " << count_deck() <<endl;
   cout << "open_flag_e : " << open_flag_e << " sol_flag_e : " << sol_flag_e[0] << " " << sol_flag_e[1] << " lt5_flag_e : " << lt5_flag_e << " not7_flag_e : " << not7_flag_e << endl;
   cout << "open_flag_s : " << open_flag_s << " sol_flag_s : " << sol_flag_s[0] << " " << sol_flag_s[1] << " lt5_flag_s : " << lt5_flag_s << " not7_flag_s : " << not7_flag_s << endl;
   cout << "hand_s : " << hand_s[0] << " " << hand_s[1] << " ";
@@ -1020,6 +1064,19 @@ void bf_position::print() const{
     cout << hand_e(i) << " ";
   }
   cout << endl << endl;
+}
+
+[[noreturn]] void exit_with_print(const bf_position& bfp, const char* context){
+  bfp.print();
+  cerr << "Error: " << context << endl;
+  exit(2);
+}
+
+void validate_hand_e_candidate(const bf_position& bfp, const char* context){
+  for(int i = 0; i < 8; i++){
+    if(bfp.hand_e(i)) return;
+  }
+  exit_with_print(bfp, (std::string(context) + " : hand_e candidate is empty").c_str());
 }
 
 unsigned char action2char(int x, bool rnd) {
@@ -1194,7 +1251,8 @@ std::pair<bool, int> use_lose(const bf_position& bfp, int card) {
   } else if(bfp.hand_s[1] == card){
     next_bfp.hand_s[1] = 0;
   } else {
-    exit(1);
+    cerr << "Error: card not in hand" << endl;
+    exit(2);
   }
 
   next_bfp = reset_flag_by_use(next_bfp, true, card);
@@ -1216,6 +1274,8 @@ std::pair<bool, int> use_lose(const bf_position& bfp, int card) {
     return {true, max_f + 1};
   }
   else if(card == 1){
+    // カード1は宣言対象外だが、候補として残っていても異常ではない。
+    validate_hand_e_candidate(bfp, "sol");
     for(int i = 1; i < 8; i++){
       if(bfp.hand_e(i)) return {false, 0};
     }
@@ -1225,7 +1285,6 @@ std::pair<bool, int> use_lose(const bf_position& bfp, int card) {
       //ランダム宣言のみ
       return {res.first, res.first ? res.second + 1 : 0};
     }
-    exit(1);
   }
   else if(card == 2){
     for(int i = 0; i < 8; i++){
@@ -1297,6 +1356,8 @@ std::pair<bool, int> use_lose(const bf_position& bfp, int card) {
         else return {false, 0};
       }
     }
+    if(max_f == -1) return {false, 0};
+    return {true, max_f + 1};
   }
   return {false, 0};
 }
@@ -1308,6 +1369,7 @@ std::pair<bool, int> wiz_lose(const bf_position& bfp, bool to0p) {
   if (preds.empty()) return {false, 0};
   int local_max_f = -1;
   for (const auto& p : preds) {
+    validate_hand_e_candidate(p, "wizlose");
     for(int i = 0; i < 8; i++){
       if(p.hand_e(i)){
         struct bf_position next_bfp = swap_player(p, i + 1);
@@ -1375,5 +1437,20 @@ int action_count(const bf_position& bfp) {
 
   if(bfp.hand_s[1] == 0) return 0;
   return bfp.hand_s[0] == bfp.hand_s[1] ? 1 : 2;
+}
+
+bool is_openhand_loveletter(const bf_position& bfp){
+  return bfp.open_e() > 1 && bfp.open_s() > 1 && bfp.hand_s[1] == 0;
+}
+
+bool is_openhand_loveletter_hisp(int open[3], std::string history, bool rnd){
+  bf_position bfp(open, history, rnd);
+  return is_openhand_loveletter(bfp);
+}
+
+bool is_openhand_loveletter_his(int open[3], std::string his0, std::string his1, bool rnd){
+  bf_position bfp0(open, his0, rnd);
+  bf_position bfp1(open, his1, rnd);
+  return bfp0.open_e() > 1 && bfp1.open_e() > 1 && bfp0.hand_s[1] == 0 && bfp1.hand_s[1] == 0;
 }
 #endif

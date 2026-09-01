@@ -1,19 +1,11 @@
 //CFR
-#include<stdio.h>
-#include<stdlib.h>
-#include<string.h>
 #include<iostream>
-#include<fstream>
 #include<map>
-#include<ctime>
 #include<cstdlib>
-#include<random>
 #include<vector>
 #include<string>
-#include<numeric>
 #include<cassert>
-#include<exception>
-#include<algorithm>
+#include<numeric>
 
 #include "rnd_action_sequense.hpp"
 #include "rnd_action.hpp"
@@ -30,17 +22,16 @@ using namespace std;
 int cfr_switch = 0;
 bool br_switch = false;
 int br_player = 0;
-bool org_switch = false;
+bool org_switch = true;
 map<std::string, infset> table_infset{};
 unsigned long int p1_points = 0;
 unsigned long int p2_points = 0;
 unsigned long int rand_points = 0;
 unsigned long int end_points = 0;
-unsigned long int win_points[6] = {0, 0, 0, 0, 0, 0};
-unsigned long int lose_points[6] = {0, 0, 0, 0, 0, 0};
-unsigned long int action_cnt = 0;
+unsigned long int win_points[11] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+unsigned long int lose_points[11] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 unsigned long int decision_points[4] = {0, 0, 0, 0};
-bool knight_check = true;
+unsigned long int opengame = 0;
 static Org_Perfect_Hash oph;
 
 #include "make_infset.hpp"
@@ -60,11 +51,11 @@ void cfr_org(int open[3]){
   cout << "p2_points : " << p2_points << endl;
   cout << "rand_points : " << rand_points << endl;
   cout << "end_points : " << end_points << endl;
-  cout << "win act:" << endl;
-  for(int i = 0; i < 6; i++) cout << win_points[i] << " ";
+  cout << "win points:" << endl;
+  for(int i = 0; i < 11; i++) cout << win_points[i] << " ";
   cout << endl;
-  cout << "lose move:" << endl;
-  for(int i = 0; i < 6; i++) cout << lose_points[i] << " ";
+  cout << "lose points:" << endl;
+  for(int i = 0; i < 11; i++) cout << lose_points[i] << " ";
   cout << endl;
   cout << "decision_points : " << endl;
   for(int i = 0; i < 4; i++) cout << decision_points[i] << " ";

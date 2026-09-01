@@ -3,6 +3,7 @@
 #endif
 bool cutting_w = false;
 bool cutting_l = false;
+int end_deck_n = 0;
 void org_ds_put_hide_card(node &n);
 void org_ds_draw_p1_init(node &n);
 void org_ds_draw_p2_init(node &n);
@@ -131,6 +132,8 @@ void org_ds_draw(node &n){
     bool rm_bylose = res_0lose.first || res_1lose.first || cutting_l;
     bool con_cutting_w = cutting_w;
     bool con_cutting_l = cutting_l;
+    assert(0 <= res_0win.second && res_0win.second < 11);
+    assert(0 <= res_1win.second && res_1win.second < 11);
 
     decision_points[0]++;
     if(!rm_bywin) decision_points[1]++;
@@ -150,6 +153,7 @@ void org_ds_draw(node &n){
     else if(res_0lose.first) lose_points[res_0lose.second]++;
     else if(res_1lose.first) lose_points[res_1lose.second]++;
     else lose_points[0]++;
+    // if(res_0win.first || res_1win.first) output_actions_history(key, false);
 
     // w.infset_it = table_infset.find(key);
     static auto dummy_it = table_infset.emplace("__dummy__", infset{}).first;
@@ -201,7 +205,7 @@ void org_ds_play(node &n, int c){
               bool rm_bywin =  res_win.first || cutting_w;
               bool rm_bylose = cutting_l;
               bool con_cutting_w = cutting_w;
-
+              assert(0 <= res_win.second && res_win.second < 11);
               decision_points[0]++;
               if(!rm_bywin) decision_points[1]++;
               if(!rm_bylose) decision_points[2]++;
@@ -257,6 +261,8 @@ void org_ds_play(node &n, int c){
           bool rm_bylose = res_0lose.first || res_1lose.first || cutting_l;
           bool con_cutting_w = cutting_w;
           bool con_cutting_l = cutting_l;
+          assert(0 <= res_0win.second && res_0win.second < 11);
+          assert(0 <= res_1win.second && res_1win.second < 11);
 
           decision_points[0]++;
           if(!rm_bywin) decision_points[1]++;
@@ -284,7 +290,7 @@ void org_ds_play(node &n, int c){
           // ds_w0.infset_it = table_infset.find(key);
           static auto dummy_it = table_infset.emplace("__dummy__", infset{}).first;
           ds_w0.infset_it = dummy_it;
-          if(n.dsum() == 0){ end_points++;
+          if(n.dsum() <= end_deck_n){ end_points++;
             return;
           } else {
             if(n.barrier2 == false){
@@ -355,9 +361,12 @@ void org_ds_play(node &n, int c){
           end_points++;
           return;
     }
-    if(n.dsum() == 0){ end_points++;
+    if(n.dsum() <= end_deck_n){ end_points++;
       return;
     }
+    // if(is_openhand_loveletter_his(n.open, n.org_his_p[0].get_hash_value(), n.org_his_p[1].get_hash_value(), false)){
+    //   opengame++;
+    // }
 
     rand_points++;
     for(int i = 1; i < 9; i++){
@@ -372,9 +381,12 @@ void org_ds_play(node &n, int c){
 
 // 兵士推測不正解後のドロー・ターン進行処理
 void org_ds_soldior(node &n){
-    if(n.dsum() == 0){ end_points++;
+    if(n.dsum() <= end_deck_n){ end_points++;
       return;
     }
+    // if(is_openhand_loveletter_his(n.open, n.org_his_p[0].get_hash_value(), n.org_his_p[1].get_hash_value(), false)){
+    //   opengame++;
+    // }
 
     rand_points++;
     for(int i = 1; i < 9; i++){
@@ -388,9 +400,12 @@ void org_ds_soldior(node &n){
 }
 
 void org_ds_wizard(node &n){
-    if(n.dsum() == 0){ end_points++;
+    if(n.dsum() <= end_deck_n){ end_points++;
       return;
     }
+    // if(is_openhand_loveletter_his(n.open, n.org_his_p[0].get_hash_value(), n.org_his_p[1].get_hash_value(), false)){
+    //   opengame++;
+    // }
 
     rand_points++;
     for(int i = 1; i < 9; i++){
@@ -404,9 +419,12 @@ void org_ds_wizard(node &n){
 }
 
 void org_ds_wizard_self(node &n){
-    if(n.dsum() == 0){ end_points++;
+    if(n.dsum() <= end_deck_n){ end_points++;
       return;
     }
+    // if(is_openhand_loveletter_his(n.open, n.org_his_p[0].get_hash_value(), n.org_his_p[1].get_hash_value(), false)){
+    //   opengame++;
+    // }
 
     rand_points++;
     for(int i = 1; i < 9; i++){
