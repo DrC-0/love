@@ -367,10 +367,12 @@ int count_active_flags(const State& s) {
   if(s.lt5_flag_e) count++;
   if(s.not7_flag) count++;
 
-  // open, sol は int なので 0 より大きいか判定
+  // open は int、sol は int[2] なので、それぞれ 0 より大きいかで判定する
   if(s.open_flag_s > 0 || s.open_flag_e > 0) count++;
-  if(s.sol_flag_s > 0) count++;
-  if(s.sol_flag_e > 0) count++;
+  if(s.sol_flag_s[0] > 0) count++;
+  if(s.sol_flag_s[1] > 0) count++;
+  if(s.sol_flag_e[0] > 0) count++;
+  if(s.sol_flag_e[1] > 0) count++;
 
   return count;
 }

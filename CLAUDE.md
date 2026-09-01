@@ -22,7 +22,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 - C++20 / g++ / Makefile のみ。`make <target>`。
 - 変更後は `make cfr cfr0 cfrorg brrnd brorg win` が通ることを確認する（実行までは不要）。
-- `watch` と `end` は現状ビルドできない既知の問題（`watch_cfr.cpp` が `cfr_switch` を定義していない / `bs_set.hpp` が `int[2]` の `sol_flag_s` を `0` と比較している）。`make all` は通らないので上記6ターゲットを個別に指定する。
+- `watch` は現状リンクエラー（`watch_cfr.cpp` が `cfr_switch` を定義していない）。`make all` はここで止まるので、上記6ターゲットを個別に指定する。
 - 通常ビルドは `-DNDEBUG` なので `assert` は無効。assert を効かせたいときは `make cfrorgd`（出力名は `cfrorg` のまま）。
 - 実行時は部分ゲームの3枚を引数で渡す: `./cfrorg 5 5 7`、`./win 4 4 6`。
 - 自動テストは存在しない。`test.cpp` は gitignore 済みの手動デバッグ用スクラッチで、`main` を書き換えて使う。
