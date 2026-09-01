@@ -641,9 +641,9 @@ void State::rm_sol_e(int card) {
 
 void State::last2card(int last[2]) const {
   if(count_deck() != 1) return;
-  int j = 0, d = 0;
+  int j = 0;
   for(int i = 0; i < 8; i++) {
-    d = deck_or_hand_e(i);
+    const int d = deck_or_hand_e(i);
     if(d >= 2) {
       last[0] = i + 1;
       last[1] = i + 1;
@@ -657,9 +657,9 @@ void State::last2card(int last[2]) const {
 
 void State::last3card(int last[3]) const {
   if(count_deck() != 2) return;
-  int j = 0, d = 0;
+  int j = 0;
   for(int i = 0; i < 8; i++) {
-    d = deck_or_hand_e(i);
+    const int d = deck_or_hand_e(i);
     if(d >= 3) {
       last[0] = i + 1;
       last[1] = i + 1;

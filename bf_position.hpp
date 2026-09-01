@@ -1154,6 +1154,9 @@ string get_actions_history(std::string s, bool rnd = true) {
         history += to_string(c2t % 10);
         // cout << (c2t % 10);
       } else if(num2 == 3) {
+        // 次の行動で turn が反転するため bal[1 - turn] として読まれるが,
+        // cppcheck は添字の変化を追えず未使用と誤検知する
+        // cppcheck-suppress unreadVariable
         bal[turn] = true;
       } else if(num2 == 4) {
         int c2w = char_to_wizard(action[1]);

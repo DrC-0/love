@@ -160,7 +160,6 @@ struct node {
   org_action_sequense org_his;
   org_action_sequense org_his_p[2];
   double npi[3][32];
-  int next_f;
   int depth;
   int hand1[2];
   int hand2;
@@ -173,8 +172,8 @@ struct node {
   int count_turn;
   bool barrier1;
   bool barrier2;
-  node()
-    : next_f(0), depth(0), hand1{0, 0}, hand2(0), open1(0), open2(0), deck{n1, n2, n3, n4, n5, n6, n7, n8}, open{0, 0, 0}, hide(0), turn(0), count_turn(0), barrier1(false), barrier2(false) {}
+  // 部分ゲームの3枚を渡さない node は作れない(npi を初期化できないため)
+  node() = delete;
 
   node(const int input_open[3]);
   node(const std::string &h, bool rnd, const int input_open[3]);
