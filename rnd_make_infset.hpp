@@ -164,7 +164,7 @@ void rnd_ds_draw(node &n) {
 }
 
 void rnd_ds_play(node &n, int c) {
-  double prob_win;
+  double prob_win = 0.0;
   switch(c) {
   case 1:
     if(n.open2 > 1 && n.barrier2 == false) {
@@ -177,19 +177,6 @@ void rnd_ds_play(node &n, int c) {
         end_points++;
         return;
       }
-      double exist_card[8] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
-      for(int i = 0; i < 8; i++) exist_card[i] += n.deck[i];
-      exist_card[n.hand2 - 1]++;
-      exist_card[n.hide - 1]++;
-      // exist_card[1] = exist_card[1] / 2.0;
-      // exist_card[7] = exist_card[7] * 8.0;
-      double sum_exist_card = exist_card[1] + exist_card[2] + exist_card[3] + exist_card[4] + exist_card[5] + exist_card[6] + exist_card[7];
-      prob_win = exist_card[n.hand2 - 1] / sum_exist_card;
-      /*if(exist_card[7] > 0){
-        prob_win = 0.0;
-        if(n.hand2 == 8) prob_win = 1.0;
-      }*/
-
       if(n.hide != 1) {
         prob_win = n.deck[1] + n.deck[2] + n.deck[3] + n.deck[4] + n.deck[5] + n.deck[6] + n.deck[7] + 2;
         if(n.hide != n.hand2) {
