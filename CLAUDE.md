@@ -75,3 +75,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 - ファイル間の依存関係: `explain.md`（mermaid の図）
 - 各ファイルの役割: `説明書.txt`（gitignore 済みでローカルのみ）
+
+## Agent skills
+
+### Issue tracker
+
+GitHub Issues (`DrC-0/love`) を `gh` CLI 経由で使う。See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+デフォルトの5ラベル（`needs-triage` / `needs-info` / `ready-for-agent` / `ready-for-human` / `wontfix`）をそのまま使う。See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+単一コンテキスト（ルートの `CONTEXT.md` + `docs/adr/`）。用語や決定が固まった時点で `domain-modeling` が遅延生成する。See `docs/agents/domain.md`.
