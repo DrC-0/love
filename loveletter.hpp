@@ -147,8 +147,12 @@ struct work_do_action {
   int used_open1;
   int prev_open1;
   int prev_open2;
-  bool prev_barrier1;
   bool prev_barrier2;
+  // prev_* は do_action が書いて undo_action が読み戻す退避領域で、do/undo が同じ
+  // 行動でペアになる限り必ず write-before-read になる。cppcheck はそのペア関係を
+  // 追えないため未初期化と誤検知する。used_open1 だけは do_action が書かない経路が
+  // あり undo_action が無条件に読むので、初期値 0 が必要。
+  // cppcheck-suppress uninitMemberVar
   work_do_action()
     : randsol_wprob(0.0), used_open1(0) {}
 };

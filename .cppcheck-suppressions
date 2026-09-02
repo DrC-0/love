@@ -8,6 +8,9 @@ missingIncludeSystem
 # 情報集合の走査で使うカーソル変数(head)は、最後の代入が読まれない書き方になっている
 unreadVariable:all_elements.hpp
 unreadVariable:all_elements_rnd.hpp
+# 同じ head は値渡しの引数なので、関数末尾の head-- も呼び出し元に伝わらない
+uselessAssignmentArg:all_elements.hpp
+uselessAssignmentArg:all_elements_rnd.hpp
 
 # シャドーイングはコンパイラの -Wshadow=local 側で見ているため重複を避ける
 shadowVariable
