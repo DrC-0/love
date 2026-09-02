@@ -203,7 +203,7 @@ bool is_legal_state(const State& s) {
 
   bool p = false;
   for(int i = 0; i < 8; ++i) {
-    p = p || s.hand_e(i) > 0;
+    p = p || s.hand_e(i);
   }
   if(!p) return false;
 
@@ -334,7 +334,7 @@ std::vector<State> set_hand(const State s, const int hand) {
   s2.open_flag_e = hand;
   // if(commentable) s2.print();
   for(int i = 0; i < 8; i++) {
-    if(s2.hand_s(i) > 0) {
+    if(s2.hand_s(i)) {
       State s3 = s2;
       s3.hand[0] = i + 1;
       if(s3.trash[i] + 1 == max_num[i] && in(s3.sol_flag_e, i + 1)) s3.rm_sol_e(i + 1);

@@ -134,6 +134,9 @@ void output_hash_history(string s, bool rnd) {
         int c2t = char_to_twonum(action[1]);
         cout << (c2t % 10) + 1;
       } else if(num2 == 3) {
+        // 次の行動で turn が反転するため bal[1 - turn] として読まれるが,
+        // cppcheck は添字の変化を追えず未使用と誤検知する
+        // cppcheck-suppress unreadVariable
         bal[turn] = true;
       } else if(num2 == 4) {
         int c2w = char_to_wizard(action[1]);
@@ -234,7 +237,7 @@ void best_response(bool brp1, int t, int open[3]) {
   return;
 }
 
-int main(int argc, char *argv[]) {
+int main(int, char *argv[]) {
   int p, t, a, b, c;
   p = atoi(argv[1]);
   t = atoi(argv[2]);

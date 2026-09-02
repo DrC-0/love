@@ -124,7 +124,7 @@ void cfr_zero(int open[3]) {
   return;
 }
 
-int main(int argc, char *argv[]) {
+int main(int, char *argv[]) {
   int a, b, c;
   a = atoi(argv[1]);
   b = atoi(argv[2]);

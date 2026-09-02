@@ -616,10 +616,10 @@ void all_exp_reward(string his_p, int open[3], vector<string> &m, int sign, int 
             head--;
           } else {
             head++;
-            string action = oph.get_action((unsigned char)his_p[head]);
-            int c2a = char_to_action(action[0]);
-            int ctoa2_a = c2a / 10;
-            int ctoa2_b = c2a % 10;
+            string next_action = oph.get_action((unsigned char)his_p[head]);
+            int next_c2a = char_to_action(next_action[0]);
+            int ctoa2_a = next_c2a / 10;
+            int ctoa2_b = next_c2a % 10;
             if(ctoa2_a == 3) {
               if(n.deck[ctoa2_b] == 0) {
                 continue;

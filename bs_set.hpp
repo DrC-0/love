@@ -313,7 +313,7 @@ void State::print() const {
   } else {
     std::cout << "Open:- | ";
     std::cout << "Lt5:" << (lt5_flag_s ? "ON " : "OFF") << " | ";
-    std::cout << "Sol:" << sol_flag_s;
+    std::cout << "Sol:" << sol_flag_s[0] << " " << sol_flag_s[1];
   }
   std::cout << std::endl;
 
@@ -334,7 +334,7 @@ void State::print() const {
       // Case 2: Barrierがある場合
       // Solだけ有効、Lt5/Not7は無視
       std::cout << "Barrier:ON | ";
-      std::cout << "Sol:" << sol_flag_e;
+      std::cout << "Sol:" << sol_flag_e[0] << " " << sol_flag_e[1];
       std::cout << " (Override Lt5/Not7)";
     } else {
       std::cout << "Barrier:OFF | ";
@@ -343,13 +343,13 @@ void State::print() const {
         // Case 3: Lt5がある場合
         // Sol有効、Not7は無視
         std::cout << "Lt5:ON | ";
-        std::cout << "Sol:" << sol_flag_e;
+        std::cout << "Sol:" << sol_flag_e[0] << " " << sol_flag_e[1];
         std::cout << " (Override Not7)";
       } else {
         // Case 4: フルセット (Lt5なし)
         // Sol, Not7 有効
         std::cout << "Lt5:OFF | ";
-        std::cout << "Sol:" << sol_flag_e << " | ";
+        std::cout << "Sol:" << sol_flag_e[0] << " " << sol_flag_e[1] << " | ";
         std::cout << "Not7:" << (not7_flag ? "T" : "F");
       }
     }
@@ -367,10 +367,12 @@ int count_active_flags(const State& s) {
   if(s.lt5_flag_e) count++;
   if(s.not7_flag) count++;
 
-  // open, sol は int なので 0 より大きいか判定
+  // open は int、sol は int[2] なので、それぞれ 0 より大きいかで判定する
   if(s.open_flag_s > 0 || s.open_flag_e > 0) count++;
-  if(s.sol_flag_s > 0) count++;
-  if(s.sol_flag_e > 0) count++;
+  if(s.sol_flag_s[0] > 0) count++;
+  if(s.sol_flag_s[1] > 0) count++;
+  if(s.sol_flag_e[0] > 0) count++;
+  if(s.sol_flag_e[1] > 0) count++;
 
   return count;
 }
@@ -419,11 +421,11 @@ State reset_flag_by_use(const State& s, bool to_self, int card) {
     if(s.open_flag_s > 0 && s.open_flag_s == card) {
       next_s.open_flag_s = 0;
     }
-    if(s.sol_flag_s[0] != 0 && s.sol_flag_s[0] != card) {
-      next_s.sol_flag_s[0] = s.sol_flag_e[1];
+    if(s.sol_flag_s[1] != 0 && s.sol_flag_s[1] != card) {
       next_s.sol_flag_s[1] = 0;
     }
-    if(s.sol_flag_s[1] != 0 && s.sol_flag_s[1] != card) {
+    if(s.sol_flag_s[0] != 0 && s.sol_flag_s[0] != card) {
+      next_s.sol_flag_s[0] = next_s.sol_flag_s[1];
       next_s.sol_flag_s[1] = 0;
     }
     if(s.lt5_flag_s && card < 5) {
@@ -435,11 +437,11 @@ State reset_flag_by_use(const State& s, bool to_self, int card) {
     if(s.open_flag_e > 0 && s.open_flag_e == card) {
       next_s.open_flag_e = 0;
     }
-    if(s.sol_flag_e[0] != 0 && s.sol_flag_e[0] != card) {
-      next_s.sol_flag_s[0] = s.sol_flag_e[1];
-      next_s.sol_flag_s[1] = 0;
-    }
     if(s.sol_flag_e[1] != 0 && s.sol_flag_e[1] != card) {
+      next_s.sol_flag_e[1] = 0;
+    }
+    if(s.sol_flag_e[0] != 0 && s.sol_flag_e[0] != card) {
+      next_s.sol_flag_e[0] = next_s.sol_flag_e[1];
       next_s.sol_flag_e[1] = 0;
     }
     if(s.lt5_flag_e && card < 5) {
@@ -639,9 +641,9 @@ void State::rm_sol_e(int card) {
 
 void State::last2card(int last[2]) const {
   if(count_deck() != 1) return;
-  int j = 0, d = 0;
+  int j = 0;
   for(int i = 0; i < 8; i++) {
-    d = deck_or_hand_e(i);
+    const int d = deck_or_hand_e(i);
     if(d >= 2) {
       last[0] = i + 1;
       last[1] = i + 1;
@@ -655,9 +657,9 @@ void State::last2card(int last[2]) const {
 
 void State::last3card(int last[3]) const {
   if(count_deck() != 2) return;
-  int j = 0, d = 0;
+  int j = 0;
   for(int i = 0; i < 8; i++) {
-    d = deck_or_hand_e(i);
+    const int d = deck_or_hand_e(i);
     if(d >= 3) {
       last[0] = i + 1;
       last[1] = i + 1;

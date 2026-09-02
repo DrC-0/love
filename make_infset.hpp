@@ -204,7 +204,6 @@ void org_ds_play(node &n, int c) {
       string key = n.org_his_p[n.turn].get_hash_value();
 
       work_do_action ds_w0;
-      ds_w0.infset_it = table_infset.find(key);
       static auto dummy_it = table_infset.emplace("__dummy__", infset{}).first;
       ds_w0.infset_it = dummy_it;
 

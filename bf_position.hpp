@@ -94,7 +94,7 @@ int open_e(const int hand[2], const int trash[8], const int open_flag_s, const i
 bool deck(const int i, const int hand[2], const int trash[8], const int open_flag_e, const int sol_flag_e[2], const bool lt5_flag_e, const bool not7_flag_e);
 bool in(const int hand[2], const int target);
 int other(const int hand[2], const int target);
-int count_deck(const int i, const int hand[2], const int trash[8]);
+int count_deck(const int hand[2], const int trash[8]);
 
 bf_position reset_flag_by_use(const bf_position& bfp, bool is_self, int card);
 std::pair<int, int> is_win(const bf_position& bfp);
@@ -179,7 +179,7 @@ int other(const int hand[2], const int target) {
   return 0;
 }
 
-int count_deck(const int i, const int hand[2], const int trash[8]) {
+int count_deck(const int hand[2], const int trash[8]) {
   int count = 0;
   for(int i = 0; i < 8; i++) {
     count += deck_or_hand_e(i, hand, trash);
@@ -544,10 +544,10 @@ std::pair<int, int> is_win(const bf_position& bfp) {
     validate_hand_e_candidate(bfp, "sol");
     for(int i = 1; i < 8; i++) {
       if(bfp.hand_e(i)) {
-        auto res = sol_win(bfp, i + 1);
-        if(res.first) {
+        auto res_sol = sol_win(bfp, i + 1);
+        if(res_sol.first) {
           has_true = true;
-          min_t = std::min(min_t, res.second);
+          min_t = std::min(min_t, res_sol.second);
         }
       }
     }
@@ -1154,6 +1154,9 @@ string get_actions_history(std::string s, bool rnd = true) {
         history += to_string(c2t % 10);
         // cout << (c2t % 10);
       } else if(num2 == 3) {
+        // 次の行動で turn が反転するため bal[1 - turn] として読まれるが,
+        // cppcheck は添字の変化を追えず未使用と誤検知する
+        // cppcheck-suppress unreadVariable
         bal[turn] = true;
       } else if(num2 == 4) {
         int c2w = char_to_wizard(action[1]);

@@ -152,7 +152,7 @@ void infset_iswin(int open[3]) {
   save_bin_abs(filename, abs_history, only_history);
 }
 
-int main(int argc, char* argv[]) {
+int main(int, char* argv[]) {
   int a, b, c;
   a = atoi(argv[1]);
   b = atoi(argv[2]);

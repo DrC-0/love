@@ -200,7 +200,7 @@ void cfr(int t0, int t, int open[3]) {
   return;
 }
 
-int main(int argc, char *argv[]) {
+int main(int, char *argv[]) {
   int t0, t, a, b, c;
   t0 = atoi(argv[1]);
   t = atoi(argv[2]);
