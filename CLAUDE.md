@@ -59,6 +59,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - 警告フラグは Makefile の `COMMON_WARN`（`-Wall -Wextra -Wshadow=local`）。`-Wshadow=local` はコンストラクタ引数がメンバを隠す書き方を許しつつ、ローカル同士のシャドーイングだけを警告する。新しい警告を出したまま放置しない。
 - `make cppcheck` で静的解析（cppcheck 2.7）。抑制は理由を添えて `.cppcheck-suppressions` に、1箇所だけなら該当行の直前に `// cppcheck-suppress <id>` を書く。
 
+## 実装の進め方
+
+- 複数ファイルにまたがる変更、および org / rnd の対構造に触る変更は、直接実装せず `/plan-gate` を通す。
+- `/plan-gate` は「計画書を書く → Haiku サブエージェント (`plan-quiz`) への一問一答で穴を検出 → 埋まるまで書き直す → Sonnet サブエージェント (`impl`) に実装させる」というゲート。詳細は `.claude/skills/plan-gate/SKILL.md`。
+- 1ファイル内で完結する小さな修正はゲート不要。そのまま実装してよい。
+
 ## Git
 
 - master に直接積まず、作業ブランチを切ってコミットし、確認後に `git merge --ff-only` で master に取り込む。
