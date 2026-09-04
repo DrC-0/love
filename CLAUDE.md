@@ -31,10 +31,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 同じゲームに対して2つのモデルがあり、多くの関数・ヘッダが対で存在する。片方を直したらもう片方の整合性も確認すること。
 
-- **org**: 元のルール。兵士の宣言がプレイヤーの意思決定。`org_action*.hpp` / `oph` / `make_infset.hpp` / `cfr_org.cpp` / `br.cpp`。
+- **org**: 元のルール。兵士の宣言がプレイヤーの意思決定。`org_action*.hpp` / `oph` / `org_tree.hpp` + `visit_winlose.hpp` / `cfr_org.cpp` / `br.cpp`。
 - **rnd**: 兵士の宣言を一様ランダムに抽象化した版。`rnd_action*.hpp` / `rph` / `rnd_make_infset.hpp` / `cfr.cpp` / `br_rnd.cpp`。
 
 `bf_position` など共通コードは `bool rnd` 引数で切り替える（`bf_position(open, history, rnd)` の既定は `true` = rnd）。
+
+org 側だけ、ゲーム木の展開と必勝・必敗判定が分離してある。`org_tree.hpp` が展開器
+（`loveletter.hpp` しか include せず、判定も統計も持たない `template <class V>` の DFS）、
+`visit_winlose.hpp` が判定器（`winlose_visitor`）。判定を差し替えるときは
+`visit_winlose.hpp` の隣に同じフックを持つ struct を書く。展開部分は複製しない。
+rnd 側は `rnd_make_infset.hpp` が情報集合表を作り、`infset_iswin.cpp` が第2フェーズで
+判定する二相構成のまま。org を二相にしてはいけない理由は `docs/adr/0001` を参照。
 
 ## 行動履歴のエンコード（間違えやすい）
 

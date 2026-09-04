@@ -69,7 +69,7 @@ template <class V> void org_ds_soldior(node &n, V &v);
 
 template <class V>
 void org_ds_put_hide_card(node &n, V &v) {
-  v.on_chance();
+  v.on_chance_points();
   for(int i = 1; i < 9; i++) {
     if(n.deck[i - 1] == 0) {
       continue;
@@ -84,7 +84,7 @@ void org_ds_put_hide_card(node &n, V &v) {
 
 template <class V>
 void org_ds_draw_p1_init(node &n, V &v) {
-  v.on_chance();
+  v.on_chance_points();
   for(int i = 1; i < 9; i++) {
     if(n.deck[i - 1] == 0) {
       continue;
@@ -99,7 +99,7 @@ void org_ds_draw_p1_init(node &n, V &v) {
 
 template <class V>
 void org_ds_draw_p2_init(node &n, V &v) {
-  v.on_chance();
+  v.on_chance_points();
   for(int i = 1; i < 9; i++) {
     if(n.deck[i - 1] == 0) {
       continue;
@@ -115,30 +115,30 @@ void org_ds_draw_p2_init(node &n, V &v) {
 template <class V>
 void org_ds_draw(node &n, V &v) {
   if((n.hand1[0] == 7 || n.hand1[1] == 7) && n.hand1[0] + n.hand1[1] >= 12) {
-    v.on_terminal();
+    v.on_terminal_points();
     return;
   }
   //必勝判定
   if(use_good_move) {
     if(n.open2 > 1 && n.barrier2 == false) {
       if(n.hand1[0] == 1 || n.hand1[1] == 1) {
-        v.on_terminal();
+        v.on_terminal_points();
         return;
       }
     }
     if(n.open2 > 0 && n.barrier2 == false) {
       if(n.hand1[0] == 3 && n.hand1[1] > n.open2) {
-        v.on_terminal();
+        v.on_terminal_points();
         return;
       }
       if(n.hand1[1] == 3 && n.hand1[0] > n.open2) {
-        v.on_terminal();
+        v.on_terminal_points();
         return;
       }
     }
     if(n.open2 == 8 && n.barrier2 == false) {
       if(n.hand1[0] == 5 || n.hand1[1] == 5) {
-        v.on_terminal();
+        v.on_terminal_points();
         return;
       }
     }
@@ -147,28 +147,28 @@ void org_ds_draw(node &n, V &v) {
   //必敗判定
   if(nuse_bad_move) {
     if(n.hand1[0] == 3 && n.hand1[1] < n.open2 && n.barrier2 == false) {
-      v.on_terminal();
+      v.on_terminal_points();
       int card = n.hand1[1];
       n.do_action(5, 1, w);
       org_ds_play(n, card, v);
       n.undo_action(5, card, w);
       return;
     } else if(n.hand1[0] < n.open2 && n.hand1[1] == 3 && n.barrier2 == false) {
-      v.on_terminal();
+      v.on_terminal_points();
       int card = n.hand1[0];
       n.do_action(5, 0, w);
       org_ds_play(n, card, v);
       n.undo_action(5, card, w);
       return;
     } else if(n.hand1[0] == 8) {
-      v.on_terminal();
+      v.on_terminal_points();
       int card = n.hand1[1];
       n.do_action(5, 1, w);
       org_ds_play(n, card, v);
       n.undo_action(5, card, w);
       return;
     } else if(n.hand1[1] == 8) {
-      v.on_terminal();
+      v.on_terminal_points();
       int card = n.hand1[0];
       n.do_action(5, 0, w);
       org_ds_play(n, card, v);
@@ -187,7 +187,7 @@ void org_ds_draw(node &n, V &v) {
     }
   }
 
-  v.on_decision(n.turn);
+  v.on_decision_points(n.turn);
   int c1, c2;
   c1 = n.hand1[0];
   c2 = n.hand1[1];
@@ -211,11 +211,11 @@ void org_ds_play(node &n, int c, V &v) {
   switch(c) {
   case 1:
     if(n.open2 > 1 && n.barrier2 == false) {
-      v.on_terminal();
+      v.on_terminal_points();
       return;
     }
     if(n.barrier2 == false) {
-      v.on_decision(n.turn);
+      v.on_decision_points(n.turn);
 
       work_do_action ds_w0;
       ds_w0.infset_it = v.infset_for(n);
@@ -227,19 +227,19 @@ void org_ds_play(node &n, int c, V &v) {
       for(int i = 2; i < 9; i++) {
         if(n.deck[i - 1] > 0) candidate[i - 1] = true;
         if(!candidate[i - 1]) continue;
-        v.on_guess(n, i);
+        v.on_soldier_guess(n, i);
 
         if(i == n.hand2) {
           // 推測が的中した場合は即座にゲーム終了
-          v.on_terminal();
+          v.on_terminal_points();
         } else {
           // 不正解の場合は次のドローフェーズ(org_ds_soldior)へ移行
-          v.enter_guess(n);
+          v.enter_soldier_guess(n);
           work_do_action ds_w = ds_w0;
           n.do_action(8, i, ds_w);
           org_ds_soldior(n, v);
           n.undo_action(8, i, ds_w);
-          v.leave_guess(n);
+          v.leave_soldier_guess(n);
         }
       }
       // 山札などの関係で選択肢が全くない場合
@@ -253,67 +253,67 @@ void org_ds_play(node &n, int c, V &v) {
     break;
   case 3:
     if(n.hand1[0] > n.hand2 && n.barrier2 == false) {
-      v.on_terminal();
+      v.on_terminal_points();
       return;
     } else if(n.hand1[0] < n.hand2 && n.barrier2 == false) {
-      v.on_terminal();
+      v.on_terminal_points();
       return;
     }
     break;
   case 4:
     break;
   case 5: {
-    v.on_decision(n.turn);
+    v.on_decision_points(n.turn);
     v.enter_wizard(n);
 
     work_do_action ds_w0;
     ds_w0.infset_it = v.infset_for(n);
 
     if(n.dsum() <= end_deck_n) {
-      v.on_terminal();
+      v.on_terminal_points();
       return;
     } else {
       if(n.barrier2 == false) {
         if(n.hand2 != 8) {
-          v.on_chance();
+          v.on_chance_points();
           for(int i = 1; i < 9; i++) {
             if(n.deck[i - 1] == 0) {
               continue;
             }
-            v.enter_wiz_branch(n, false);
+            v.enter_wizard_branch(n, false);
             work_do_action ds_w2 = ds_w0;
             n.do_action(6, i, ds_w2);
             org_ds_wizard(n, v);
             n.undo_action(6, i, ds_w2);
-            v.leave_wiz_branch(n, false);
+            v.leave_wizard_branch(n, false);
           }
         } else {
-          v.on_terminal();
+          v.on_terminal_points();
         }
       } else {
         // バリア展開時は org_his 構造に沿って (6, 0) を実行する形に修正
-        v.enter_wiz_branch(n, false);
+        v.enter_wizard_branch(n, false);
         work_do_action ds_ww = ds_w0;
         n.do_action(6, 0, ds_ww);
         org_ds_wizard(n, v);
         n.undo_action(6, 0, ds_ww);
-        v.leave_wiz_branch(n, false);
+        v.leave_wizard_branch(n, false);
       }
       if(n.hand1[0] != 8) {
-        v.on_chance();
+        v.on_chance_points();
         for(int i = 1; i < 9; i++) {
           if(n.deck[i - 1] == 0) {
             continue;
           }
-          v.enter_wiz_branch(n, true);
+          v.enter_wizard_branch(n, true);
           work_do_action ds_w3 = ds_w0;
           n.do_action(7, i, ds_w3);
           org_ds_wizard_self(n, v);
           n.undo_action(7, i, ds_w3);
-          v.leave_wiz_branch(n, true);
+          v.leave_wizard_branch(n, true);
         }
       } else {
-        v.on_terminal();
+        v.on_terminal_points();
       }
       return;
     }
@@ -323,15 +323,15 @@ void org_ds_play(node &n, int c, V &v) {
   case 7:
     break;
   case 8:
-    v.on_terminal();
+    v.on_terminal_points();
     return;
   }
   if(n.dsum() <= end_deck_n) {
-    v.on_terminal();
+    v.on_terminal_points();
     return;
   }
 
-  v.on_chance();
+  v.on_chance_points();
   for(int i = 1; i < 9; i++) {
     if(n.deck[i - 1] == 0) {
       continue;
@@ -348,10 +348,10 @@ void org_ds_play(node &n, int c, V &v) {
 template <class V>
 void org_ds_soldior(node &n, V &v) {
   if(n.dsum() <= end_deck_n) {
-    v.on_terminal();
+    v.on_terminal_points();
     return;
   }
-  v.on_chance();
+  v.on_chance_points();
   for(int i = 1; i < 9; i++) {
     if(n.deck[i - 1] == 0) {
       continue;
@@ -367,10 +367,10 @@ void org_ds_soldior(node &n, V &v) {
 template <class V>
 void org_ds_wizard(node &n, V &v) {
   if(n.dsum() <= end_deck_n) {
-    v.on_terminal();
+    v.on_terminal_points();
     return;
   }
-  v.on_chance();
+  v.on_chance_points();
   for(int i = 1; i < 9; i++) {
     if(n.deck[i - 1] == 0) {
       continue;
@@ -386,10 +386,10 @@ void org_ds_wizard(node &n, V &v) {
 template <class V>
 void org_ds_wizard_self(node &n, V &v) {
   if(n.dsum() <= end_deck_n) {
-    v.on_terminal();
+    v.on_terminal_points();
     return;
   }
-  v.on_chance();
+  v.on_chance_points();
   for(int i = 1; i < 9; i++) {
     if(n.deck[i - 1] == 0) {
       continue;
@@ -468,29 +468,29 @@ struct winlose_visitor {
   play_frame pf[MAX_DEPTH]{};
 
   // org_ds_play case 1（兵士）用
-  bf_position sol_bfp[MAX_DEPTH]{};
-  bool sol_inc[MAX_DEPTH]{};   // 直前の on_guess が返した res_win.first
+  bf_position soldier_bfp[MAX_DEPTH]{};
+  bool soldier_inc[MAX_DEPTH]{};   // 直前の on_soldier_guess が返した res_win.first
 
   // org_ds_play case 5（魔術師）用
-  struct wiz_frame {
+  struct wizard_frame {
     bool win[2];    // {res_0win.first, res_1win.first}
     bool lose[2];   // {res_0lose.first, res_1lose.first}
     bool is_zero;
   };
-  wiz_frame wf[MAX_DEPTH]{};
+  wizard_frame wf[MAX_DEPTH]{};
 
   std::map<std::string, infset>::iterator infset_for(node &) {
     static auto dummy_it = table_infset.emplace("__dummy__", infset{}).first;
     return dummy_it;
   }
 
-  void on_chance() {
+  void on_chance_points() {
     rand_points++;
   }
-  void on_terminal() {
+  void on_terminal_points() {
     end_points++;
   }
-  void on_decision(int turn) {
+  void on_decision_points(int turn) {
     if(turn == 0) p1_points++;
     else p2_points++;
   }
@@ -541,10 +541,10 @@ struct winlose_visitor {
   // ---- org_ds_play case 1（兵士） ----
   void enter_soldier(node &n) {
     std::string key = n.org_his_p[n.turn].get_hash_value();
-    sol_bfp[n.depth] = bf_position(n.open, key, false);
+    soldier_bfp[n.depth] = bf_position(n.open, key, false);
   }
-  void on_guess(const node &n, int i) {
-    auto res_win = sol_win(sol_bfp[n.depth], i);
+  void on_soldier_guess(const node &n, int i) {
+    auto res_win = sol_win(soldier_bfp[n.depth], i);
     bool rm_bywin = res_win.first || cutting_w > 0;
     bool rm_bylose = cutting_l > 0;
     assert(0 <= res_win.second && res_win.second < 11);
@@ -554,13 +554,13 @@ struct winlose_visitor {
     if(!rm_bywin && !rm_bylose) decision_points[3]++;
     if(res_win.first) win_points[res_win.second]++;
     else win_points[0]++;
-    sol_inc[n.depth] = res_win.first;
+    soldier_inc[n.depth] = res_win.first;
   }
-  void enter_guess(const node &n) {
-    cutting_w += sol_inc[n.depth];
+  void enter_soldier_guess(const node &n) {
+    cutting_w += soldier_inc[n.depth];
   }
-  void leave_guess(const node &n) {
-    cutting_w -= sol_inc[n.depth];
+  void leave_soldier_guess(const node &n) {
+    cutting_w -= soldier_inc[n.depth];
   }
 
   // ---- org_ds_play case 5（魔術師） ----
@@ -601,16 +601,16 @@ struct winlose_visitor {
   }
   // to_self == false: 相手に使う分岐 (do_action 6)
   // to_self == true : 自分に使う分岐 (do_action 7)
-  static int wiz_index(bool to_self, bool is_zero) {
+  static int wizard_index(bool to_self, bool is_zero) {
     return (to_self == is_zero) ? 0 : 1;
   }
-  void enter_wiz_branch(const node &n, bool to_self) {
-    const int k = wiz_index(to_self, wf[n.depth].is_zero);
+  void enter_wizard_branch(const node &n, bool to_self) {
+    const int k = wizard_index(to_self, wf[n.depth].is_zero);
     cutting_w += wf[n.depth].win[k];
     cutting_l += wf[n.depth].lose[k];
   }
-  void leave_wiz_branch(const node &n, bool to_self) {
-    const int k = wiz_index(to_self, wf[n.depth].is_zero);
+  void leave_wizard_branch(const node &n, bool to_self) {
+    const int k = wizard_index(to_self, wf[n.depth].is_zero);
     cutting_w -= wf[n.depth].win[k];
     cutting_l -= wf[n.depth].lose[k];
   }
@@ -619,7 +619,7 @@ struct winlose_visitor {
 #endif
 ```
 
-### `wiz_index` の根拠（間違えると魔術師ノードの統計が壊れる）
+### `wizard_index` の根拠（間違えると魔術師ノードの統計が壊れる）
 
 元コードの相手側分岐（`make_infset.hpp:317-320`, `335-338`）:
 
@@ -658,11 +658,11 @@ if(res_1win.first  && !is_zero) cutting_w = true;
    分岐0と分岐1の両方をまたぐ。
 3. `cutting_l` は **分岐単位**。分岐0は `res_0lose.first`、分岐1は `res_1lose.first`。
    `enter_play` で `+= l0`、`mid_play` で `-= l0; += l1`、`leave_play` で `-= l1`。
-4. 兵士（case 1）の `cutting_w` は **推測カード i ごと**。`enter_guess` / `leave_guess`
-   が再帰を挟む。`i == n.hand2` のときは再帰しないので `enter_guess` / `leave_guess` を
-   呼ばない。ただし `on_guess`（統計）は候補 i すべてで呼ぶ。
+4. 兵士（case 1）の `cutting_w` は **推測カード i ごと**。`enter_soldier_guess` / `leave_soldier_guess`
+   が再帰を挟む。`i == n.hand2` のときは再帰しないので `enter_soldier_guess` / `leave_soldier_guess` を
+   呼ばない。ただし `on_soldier_guess`（統計）は候補 i すべてで呼ぶ。
 5. 魔術師（case 5）の `cutting_w` / `cutting_l` は **ループの各反復ごと**。
-   `enter_wiz_branch` / `leave_wiz_branch` が再帰を挟む。
+   `enter_wizard_branch` / `leave_wizard_branch` が再帰を挟む。
    バリア展開時（`n.barrier2 == true`）の単発 `do_action(6, 0, ...)` も同じ扱い。
 6. `enter_wizard` と `enter_soldier` は **カウンタを触らない**。
    `enter_wizard` の直後に `n.dsum() <= end_deck_n` で早期 return する経路があるため、
@@ -671,8 +671,8 @@ if(res_1win.first  && !is_zero) cutting_w = true;
    `enter_wizard`）だけが `node &n` を **非 const 参照**で受け取る。
    `bf_position(int open[3], std::string, bool)` の第1引数が非 const 配列なので、
    これらを `const node &` にすると `bf_position(n.open, ...)` がコンパイルできない。
-   `n.depth` しか使わない残りのフック（`mid_play` / `leave_play` / `on_guess` /
-   `enter_guess` / `leave_guess` / `enter_wiz_branch` / `leave_wiz_branch`）は
+   `n.depth` しか使わない残りのフック（`mid_play` / `leave_play` / `on_soldier_guess` /
+   `enter_soldier_guess` / `leave_soldier_guess` / `enter_wizard_branch` / `leave_wizard_branch`）は
    `const node &n` を受け取る。展開器は `node &n` を渡すので、どちらにも束縛できる。
    シグネチャを一律に非 const で揃えると cppcheck の `constParameter` が 7 件出て、
    ファイル単位の抑制が必要になる。抑制は将来の本物の指摘まで隠すので採らない。
@@ -686,10 +686,10 @@ if(res_1win.first  && !is_zero) cutting_w = true;
 各フックの呼び出し位置と深さ:
 
 - `enter_play` は `do_action(5, ...)` の前、`leave_play` は `undo_action` の後。同じ深さ。
-- `enter_soldier` / `on_guess` / `enter_guess` は `do_action(8, ...)` の前、
-  `leave_guess` は `undo_action` の後。同じ深さ。
-- `enter_wizard` / `enter_wiz_branch` は `do_action(6 or 7, ...)` の前、
-  `leave_wiz_branch` は `undo_action` の後。同じ深さ。
+- `enter_soldier` / `on_soldier_guess` / `enter_soldier_guess` は `do_action(8, ...)` の前、
+  `leave_soldier_guess` は `undo_action` の後。同じ深さ。
+- `enter_wizard` / `enter_wizard_branch` は `do_action(6 or 7, ...)` の前、
+  `leave_wizard_branch` は `undo_action` の後。同じ深さ。
 - `org_ds_draw` の `enter_play`（深さ d）から `do_action(5, ...)` を経て
   `org_ds_play` に入るので、`enter_wizard` / `enter_soldier` は深さ d+1 で動く。衝突しない。
 
@@ -720,7 +720,7 @@ void cfr_org(int open[3]) {
 void cfr_org(int open[3]) {
   node n_ds(open);
   winlose_visitor v;
-  v.on_chance();
+  v.on_chance_points();
 ```
 
 同関数のループ本体（`cfr_org.cpp:49-51`）:
@@ -789,20 +789,20 @@ cfrorgd: cfr_org.cpp org_tree.hpp visit_winlose.hpp bf_position.hpp $(COMMON_SRC
 | 1-3 | `#include "bf_position.hpp"` | `visit_winlose.hpp` |
 | 4-5 | `cutting_w` / `cutting_l` | `visit_winlose.hpp`（int 化） |
 | 6 | `end_deck_n` | `org_tree.hpp`（`inline int`） |
-| 17, 31, 45, 312, 349, 389, 412, 434, 456 | `rand_points++` | `v.on_chance()` |
-| 60, 67, 73, 77, 83, 92, 99, 106, 113, 194, 231, 254, 257, 307, 331, 368, 378, 382, 405, 427, 449 | `end_points++` | `v.on_terminal()` |
-| 133-135, 199-201, 265-267 | `p1_points++` / `p2_points++` | `v.on_decision(n.turn)` |
+| 17, 31, 45, 312, 349, 389, 412, 434, 456 | `rand_points++` | `v.on_chance_points()` |
+| 60, 67, 73, 77, 83, 92, 99, 106, 113, 194, 231, 254, 257, 307, 331, 368, 378, 382, 405, 427, 449 | `end_points++` | `v.on_terminal_points()` |
+| 133-135, 199-201, 265-267 | `p1_points++` / `p2_points++` | `v.on_decision_points(n.turn)` |
 | 140-176 | org_ds_draw の判定・統計・cutting 加算 | `v.enter_play(n, c1, c2)` |
 | 171-173 | `dummy_it` | `v.infset_for(n)` |
 | 180-181 | 分岐0→1 の cutting_l 付け替え | `v.mid_play(n)` |
 | 185-186 | cutting_l / cutting_w の復元 | `v.leave_play(n)` |
 | 204, 213 | 兵士の key と bfp 構築 | `v.enter_soldier(n)` |
-| 217-227 | 兵士の sol_win と統計 | `v.on_guess(n, i)` |
-| 234 | 兵士の cutting_w 加算 | `v.enter_guess(n)` |
-| 239 | 兵士の cutting_w 復元 | `v.leave_guess(n)` |
+| 217-227 | 兵士の sol_win と統計 | `v.on_soldier_guess(n, i)` |
+| 234 | 兵士の cutting_w 加算 | `v.enter_soldier_guess(n)` |
+| 239 | 兵士の cutting_w 復元 | `v.leave_soldier_guess(n)` |
 | 269-305 | 魔術師の判定・統計・is_zero | `v.enter_wizard(n)` |
-| 317-320, 335-338, 354-357 | 魔術師の cutting 加算 | `v.enter_wiz_branch(n, to_self)` |
-| 325-328, 343-346, 362-365 | 魔術師の cutting 復元 | `v.leave_wiz_branch(n, to_self)` |
+| 317-320, 335-338, 354-357 | 魔術師の cutting 加算 | `v.enter_wizard_branch(n, to_self)` |
+| 325-328, 343-346, 362-365 | 魔術師の cutting 復元 | `v.leave_wizard_branch(n, to_self)` |
 | 385-387, 408-410, 430-432, 452-454 | `is_openhand_loveletter_his` のコメント | 削除 |
 
 ## 9. 検証手順
@@ -879,3 +879,24 @@ cppcheck の新規指摘を残さない。抑制が必要なら理由を添え�
 - 行動履歴の生成規則の変更
 - フックの粒度の正規化（意思決定点への抽象化）は将来の別作業
 - `bf_position` の再構築コストの最適化は将来の別作業
+
+## 11. 事後の追記
+
+計画のとおり実装・検収したあと、以下を追加で行った。この節より上の本文は
+ゲートを通した時点の内容だが、コード断片のフック名だけは下の変更を反映してある。
+
+1. **`.cppcheck-suppressions` への抑制を撤回した。** 5 章のルール7を
+   「すべてのフックが非 const」から「`n.open` を使う 3 つだけが非 const」に改めた。
+   一律に非 const で揃えると `constParameter` が 7 件出てファイル単位の抑制が必要になり、
+   それは将来の本物の指摘まで隠すため。
+2. **フック名を変更した。** 自然手番・終端・意思決定点のフックに `points` を付け、
+   兵士・魔術師のフックに対象を明示した。
+   `on_chance` → `on_chance_points`、`on_terminal` → `on_terminal_points`、
+   `on_decision` → `on_decision_points`、`on_guess` → `on_soldier_guess`、
+   `enter_guess` → `enter_soldier_guess`、`leave_guess` → `leave_soldier_guess`、
+   `enter_wiz_branch` → `enter_wizard_branch`、`leave_wiz_branch` → `leave_wizard_branch`、
+   `wiz_index` → `wizard_index`。`play` 系列は変更なし。
+3. **`make_infset.hpp` を削除した。** 2 章と 10 章では「今回は削除しない」としていたが、
+   これは分離のビット一致が取れるまで参照実装を残すための措置だった。
+   部分ゲーム 557 で打ち切り深さ 6 / 5 / 4 に加えてフル探索（打ち切りなし）でも
+   全カウンタが一致したため、役目を終えたとして削除した。
