@@ -45,29 +45,29 @@ struct winlose_visitor {
   play_frame pf[MAX_DEPTH]{};
 
   // org_ds_play case 1（兵士）用
-  bf_position sol_bfp[MAX_DEPTH]{};
-  bool sol_inc[MAX_DEPTH]{}; // 直前の on_guess が返した res_win.first
+  bf_position soldier_bfp[MAX_DEPTH]{};
+  bool soldier_inc[MAX_DEPTH]{}; // 直前の on_soldier_guess が返した res_win.first
 
   // org_ds_play case 5（魔術師）用
-  struct wiz_frame {
+  struct wizard_frame {
     bool win[2]; // {res_0win.first, res_1win.first}
     bool lose[2]; // {res_0lose.first, res_1lose.first}
     bool is_zero;
   };
-  wiz_frame wf[MAX_DEPTH]{};
+  wizard_frame wf[MAX_DEPTH]{};
 
   std::map<std::string, infset>::iterator infset_for(node &) {
     static auto dummy_it = table_infset.emplace("__dummy__", infset{}).first;
     return dummy_it;
   }
 
-  void on_chance() {
+  void on_chance_points() {
     rand_points++;
   }
-  void on_terminal() {
+  void on_terminal_points() {
     end_points++;
   }
-  void on_decision(int turn) {
+  void on_decision_points(int turn) {
     if(turn == 0) p1_points++;
     else p2_points++;
   }
@@ -118,10 +118,10 @@ struct winlose_visitor {
   // ---- org_ds_play case 1（兵士） ----
   void enter_soldier(node &n) {
     std::string key = n.org_his_p[n.turn].get_hash_value();
-    sol_bfp[n.depth] = bf_position(n.open, key, false);
+    soldier_bfp[n.depth] = bf_position(n.open, key, false);
   }
-  void on_guess(const node &n, int i) {
-    auto res_win = sol_win(sol_bfp[n.depth], i);
+  void on_soldier_guess(const node &n, int i) {
+    auto res_win = sol_win(soldier_bfp[n.depth], i);
     bool rm_bywin = res_win.first || cutting_w > 0;
     bool rm_bylose = cutting_l > 0;
     assert(0 <= res_win.second && res_win.second < 11);
@@ -131,13 +131,13 @@ struct winlose_visitor {
     if(!rm_bywin && !rm_bylose) decision_points[3]++;
     if(res_win.first) win_points[res_win.second]++;
     else win_points[0]++;
-    sol_inc[n.depth] = res_win.first;
+    soldier_inc[n.depth] = res_win.first;
   }
-  void enter_guess(const node &n) {
-    cutting_w += sol_inc[n.depth];
+  void enter_soldier_guess(const node &n) {
+    cutting_w += soldier_inc[n.depth];
   }
-  void leave_guess(const node &n) {
-    cutting_w -= sol_inc[n.depth];
+  void leave_soldier_guess(const node &n) {
+    cutting_w -= soldier_inc[n.depth];
   }
 
   // ---- org_ds_play case 5（魔術師） ----
@@ -178,16 +178,16 @@ struct winlose_visitor {
   }
   // to_self == false: 相手に使う分岐 (do_action 6)
   // to_self == true : 自分に使う分岐 (do_action 7)
-  static int wiz_index(bool to_self, bool is_zero) {
+  static int wizard_index(bool to_self, bool is_zero) {
     return (to_self == is_zero) ? 0 : 1;
   }
-  void enter_wiz_branch(const node &n, bool to_self) {
-    const int k = wiz_index(to_self, wf[n.depth].is_zero);
+  void enter_wizard_branch(const node &n, bool to_self) {
+    const int k = wizard_index(to_self, wf[n.depth].is_zero);
     cutting_w += wf[n.depth].win[k];
     cutting_l += wf[n.depth].lose[k];
   }
-  void leave_wiz_branch(const node &n, bool to_self) {
-    const int k = wiz_index(to_self, wf[n.depth].is_zero);
+  void leave_wizard_branch(const node &n, bool to_self) {
+    const int k = wizard_index(to_self, wf[n.depth].is_zero);
     cutting_w -= wf[n.depth].win[k];
     cutting_l -= wf[n.depth].lose[k];
   }

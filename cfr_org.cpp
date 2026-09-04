@@ -40,7 +40,7 @@ static Org_Perfect_Hash oph;
 void cfr_org(int open[3]) {
   node n_ds(open);
   winlose_visitor v;
-  v.on_chance();
+  v.on_chance_points();
   for(int i = 1; i < 9; i++) {
     if(n_ds.deck[i - 1] == 0) {
       continue;
