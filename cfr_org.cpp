@@ -34,18 +34,20 @@ unsigned long int decision_points[4] = {0, 0, 0, 0};
 unsigned long int opengame = 0;
 static Org_Perfect_Hash oph;
 
-#include "make_infset.hpp"
+#include "org_tree.hpp"
+#include "visit_winlose.hpp"
 
 void cfr_org(int open[3]) {
   node n_ds(open);
-  rand_points++;
+  winlose_visitor v;
+  v.on_chance();
   for(int i = 1; i < 9; i++) {
     if(n_ds.deck[i - 1] == 0) {
       continue;
     }
     work_do_action ds_w;
     n_ds.do_action(1, i, ds_w);
-    org_ds_put_hide_card(n_ds);
+    org_ds_put_hide_card(n_ds, v);
     n_ds.undo_action(1, i, ds_w);
     cout << decision_points[0] << endl;
   }
@@ -66,13 +68,15 @@ void cfr_org(int open[3]) {
   return;
 }
 
-int main(int, char *argv[]) {
+int main(int argc, char *argv[]) {
   int a, b, c;
   a = atoi(argv[1]);
   b = atoi(argv[2]);
   c = atoi(argv[3]);
+  if(argc > 4) end_deck_n = atoi(argv[4]);
 
   cout << "open : " << a << " " << b << " " << c << endl;
+  cout << "end_deck_n : " << end_deck_n << endl;
 
   int open[3] = {a, b, c};
   cfr_org(open);
