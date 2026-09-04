@@ -181,23 +181,22 @@ void org_ds_play(node &n, int c, V &v) {
       bool candidate[8] = {false, false, false, false, false, false, false, false};
       candidate[n.hide - 1] = true;
       candidate[n.hand2 - 1] = true;
-      v.enter_soldier(n);
       for(int i = 2; i < 9; i++) {
         if(n.deck[i - 1] > 0) candidate[i - 1] = true;
         if(!candidate[i - 1]) continue;
-        v.on_soldier_guess(n, i);
+        v.enter_soldier(n, i);
 
         if(i == n.hand2) {
           // 推測が的中した場合は即座にゲーム終了
           v.on_terminal_points();
         } else {
           // 不正解の場合は次のドローフェーズ(org_ds_soldior)へ移行
-          v.enter_soldier_guess(n);
+          v.enter_soldier_branch(n);
           work_do_action ds_w = ds_w0;
           n.do_action(8, i, ds_w);
           org_ds_soldior(n, v);
           n.undo_action(8, i, ds_w);
-          v.leave_soldier_guess(n);
+          v.leave_soldier_branch(n);
         }
       }
       // 山札などの関係で選択肢が全くない場合

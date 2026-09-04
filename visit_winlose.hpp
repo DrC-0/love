@@ -45,8 +45,7 @@ struct winlose_visitor {
   play_frame pf[MAX_DEPTH]{};
 
   // org_ds_play case 1（兵士）用
-  bf_position soldier_bfp[MAX_DEPTH]{};
-  bool soldier_inc[MAX_DEPTH]{}; // 直前の on_soldier_guess が返した res_win.first
+  bool soldier_inc[MAX_DEPTH]{}; // 直前の enter_soldier が返した res_win.first
 
   // org_ds_play case 5（魔術師）用
   struct wizard_frame {
@@ -116,12 +115,12 @@ struct winlose_visitor {
   }
 
   // ---- org_ds_play case 1（兵士） ----
-  void enter_soldier(node &n) {
+  // 宣言カード i ごとに呼ばれる。bf_position は候補ごとに作り直しになるが、
+  // enter_wizard と同じ形にして読みやすさを優先する。
+  void enter_soldier(node &n, int i) {
     std::string key = n.org_his_p[n.turn].get_hash_value();
-    soldier_bfp[n.depth] = bf_position(n.open, key, false);
-  }
-  void on_soldier_guess(const node &n, int i) {
-    auto res_win = sol_win(soldier_bfp[n.depth], i);
+    bf_position bfp(n.open, key, false);
+    auto res_win = sol_win(bfp, i);
     bool rm_bywin = res_win.first || cutting_w > 0;
     bool rm_bylose = cutting_l > 0;
     assert(0 <= res_win.second && res_win.second < 11);
@@ -133,10 +132,10 @@ struct winlose_visitor {
     else win_points[0]++;
     soldier_inc[n.depth] = res_win.first;
   }
-  void enter_soldier_guess(const node &n) {
+  void enter_soldier_branch(const node &n) {
     cutting_w += soldier_inc[n.depth];
   }
-  void leave_soldier_guess(const node &n) {
+  void leave_soldier_branch(const node &n) {
     cutting_w -= soldier_inc[n.depth];
   }
 
