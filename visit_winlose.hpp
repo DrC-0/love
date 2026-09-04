@@ -46,6 +46,12 @@ struct winlose_visitor {
 
   // org_ds_play case 1（兵士）用
   bool soldier_inc[MAX_DEPTH]{}; // 直前の enter_soldier が返した res_win.first
+  // bf_position は (部分ゲームの3枚, 履歴キー, org/rnd) だけで決まり、前2つは
+  // 実行を通して不変なので、履歴キーが同じなら作り直す必要がない。enter_soldier は
+  // 同じ意思決定点で宣言カードの候補ごとに呼ばれるため、2回目以降が命中する。
+  // 再帰は深さ n.depth + 1 以降のスロットを使うので、このスロットを壊さない。
+  std::string soldier_key[MAX_DEPTH]{};
+  bf_position soldier_bfp[MAX_DEPTH]{};
 
   // org_ds_play case 5（魔術師）用
   struct wizard_frame {
@@ -119,8 +125,11 @@ struct winlose_visitor {
   // enter_wizard と同じ形にして読みやすさを優先する。
   void enter_soldier(node &n, int i) {
     std::string key = n.org_his_p[n.turn].get_hash_value();
-    bf_position bfp(n.open, key, false);
-    auto res_win = sol_win(bfp, i);
+    if(soldier_key[n.depth] != key) {
+      soldier_key[n.depth] = key;
+      soldier_bfp[n.depth] = bf_position(n.open, key, false);
+    }
+    auto res_win = sol_win(soldier_bfp[n.depth], i);
     bool rm_bywin = res_win.first || cutting_w > 0;
     bool rm_bylose = cutting_l > 0;
     assert(0 <= res_win.second && res_win.second < 11);
