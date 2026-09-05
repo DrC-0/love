@@ -21,9 +21,7 @@
 #include "org_action.hpp"
 #include "loveletter.hpp"
 
-extern int char_to_action(char c);
-extern int char_to_wizard(char c);
-extern int char_to_twonum(char c);
+#include "action_code.hpp"
 
 using namespace std;
 

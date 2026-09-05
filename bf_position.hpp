@@ -11,21 +11,10 @@ const int max_num[8] = {5, 2, 2, 2, 2, 1, 1, 1};
 #include <utility>
 #include <cstdlib>
 
-#include "rnd_action.hpp"
-#include "org_action.hpp"
+#include "action_code.hpp"
 // #include "endgame.hpp"
 
 using namespace std;
-
-extern Rnd_Perfect_Hash rph;
-extern Org_Perfect_Hash oph;
-
-extern int char_to_action(char c);
-extern int char_to_wizard(char c);
-extern int char_to_twonum(char c);
-extern char action_to_char(int action, int card);
-extern char wizard_to_char(int to, int trash, int draw);
-extern char twonum_to_char(int card1, int card2);
 
 bool commentablebfp = false;
 

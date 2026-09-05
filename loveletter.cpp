@@ -20,6 +20,7 @@ using namespace std;
 #include "org_action_sequense.hpp"
 #include "org_action.hpp"
 #include "loveletter.hpp"
+#include "action_code.hpp"
 
 extern std::map<std::string, infset> table_infset;
 // extern std::map<size_t, infset> table_infset;
@@ -28,37 +29,6 @@ extern bool br_switch;
 extern int br_player;
 extern bool org_switch;
 
-static Rnd_Perfect_Hash rph;
-static Org_Perfect_Hash oph;
-
-char action_to_char(int action, int card) {
-  char c = (1 << 7) | (action << 3) | card;
-  return c;
-}
-int char_to_action(char c) {
-  int c2a1 = (c >> 3) & 7;
-  int c2a2 = c & 7;
-  return c2a1 * 10 + c2a2;
-}
-char wizard_to_char(int to, int trash, int draw) {
-  char c = (1 << 7) | (to << 6) | (trash << 3) | draw;
-  return c;
-}
-int char_to_wizard(char c) {
-  int c2w1 = (c >> 6) & 1;
-  int c2w2 = (c >> 3) & 7;
-  int c2w3 = c & 7;
-  return c2w1 * 100 + c2w2 * 10 + c2w3;
-}
-char twonum_to_char(int card1, int card2) {
-  char c = (1 << 7) | (card1 << 3) | card2;
-  return c;
-}
-int char_to_twonum(char c) {
-  int c2t1 = (c >> 3) & 7;
-  int c2t2 = c & 7;
-  return c2t1 * 10 + c2t2;
-}
 
 node::node(const int input_open[3])
   : depth(0), hand1{0, 0}, hand2(0), open1(0), open2(0), deck{n1, n2, n3, n4, n5, n6, n7, n8}, open{0, 0, 0}, hide(0), turn(0), count_turn(0), barrier1(false), barrier2(false) {

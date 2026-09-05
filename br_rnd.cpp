@@ -23,9 +23,7 @@
 #include "org_action.hpp"
 #include "loveletter.hpp"
 
-extern int char_to_action(char c);
-extern int char_to_wizard(char c);
-extern int char_to_twonum(char c);
+#include "action_code.hpp"
 
 using namespace std;
 
@@ -50,8 +48,6 @@ unsigned long int p2_points = 0;
 unsigned long int rand_points = 0;
 unsigned long int end_points = 0;
 unsigned long int soldior_points = 0;
-static Rnd_Perfect_Hash rph;
-static Org_Perfect_Hash oph;
 
 #include "all_elements_rnd.hpp"
 #include "rnd_make_infset.hpp"

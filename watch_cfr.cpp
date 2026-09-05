@@ -17,7 +17,7 @@ unsigned long int p1_points = 0;
 unsigned long int p2_points = 0;
 unsigned long int rand_points = 0;
 unsigned long int end_points = 0;
-static Rnd_Perfect_Hash rph;
+#include "action_code.hpp"
 
 #include "rnd_make_infset.hpp"
 #include "bf_position.hpp"

@@ -13,9 +13,7 @@
 #include "org_action.hpp"
 #include "loveletter.hpp"
 
-extern int char_to_action(char c);
-extern int char_to_wizard(char c);
-extern int char_to_twonum(char c);
+#include "action_code.hpp"
 
 using namespace std;
 
@@ -32,7 +30,6 @@ unsigned long int win_points[11] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 unsigned long int lose_points[11] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 unsigned long int decision_points[4] = {0, 0, 0, 0};
 unsigned long int opengame = 0;
-static Org_Perfect_Hash oph;
 
 #include "org_tree.hpp"
 #include "visit_winlose.hpp"

@@ -15,7 +15,7 @@
 #include "loveletter.hpp"
 #include "save_load_abshistory.hpp"
 
-extern int char_to_action(char c);
+#include "action_code.hpp"
 
 using namespace std;
 
@@ -27,7 +27,6 @@ unsigned long int p1_points = 0;
 unsigned long int p2_points = 0;
 unsigned long int rand_points = 0;
 unsigned long int end_points = 0;
-static Rnd_Perfect_Hash rph;
 
 std::set<std::string> only_history;
 std::map<std::string, bool> abs_history;

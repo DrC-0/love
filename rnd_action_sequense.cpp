@@ -1,7 +1,5 @@
 #include "rnd_action_sequense.hpp"
-#include "rnd_action.hpp"
-
-static Rnd_Perfect_Hash rph;
+#include "action_code.hpp"
 
 void rnd_action_sequense::push(const char *p, size_t len) noexcept {
   //行動を1つ追加

@@ -1,8 +1,8 @@
 # 共通で使用するソースファイル（bf_position.cpp をここに追加してリンクエラーを回避）
-COMMON_SRCS = loveletter.cpp rnd_action_sequense.cpp org_action_sequense.cpp
+COMMON_SRCS = loveletter.cpp rnd_action_sequense.cpp org_action_sequense.cpp action_code.cpp
 
 # 共通で使用するヘッダファイル（依存関係チェック用）
-COMMON_HDRS = loveletter.hpp rnd_action_sequense.hpp org_action_sequense.hpp
+COMMON_HDRS = loveletter.hpp rnd_action_sequense.hpp org_action_sequense.hpp action_code.hpp
 
 # 共通の警告フラグ
 # -Wshadow=local はコンストラクタ引数がメンバを隠す書き方を許しつつ、
@@ -50,8 +50,8 @@ comp: compare_abscfr.cpp save_load_abshistory.hpp bf_position.hpp $(COMMON_SRCS)
 	g++ -std=c++20 $(COMMON_WARN) -O2 $(COMMON_DEFS)  $(COMMON_SRCS) bf_position.hpp compare_abscfr.cpp -o $@
 
 # --- その他 ---
-test: test.cpp log_util.hpp bf_position.hpp endgame.hpp
-	g++ -std=c++20 $(COMMON_WARN) -O2 test.cpp -o $@
+test: test.cpp action_code.hpp action_code.cpp bf_position.hpp endgame.hpp
+	g++ -std=c++20 $(COMMON_WARN) -O2 test.cpp action_code.cpp -o $@
 
 end: endgame.cpp bs_set.hpp endgame.hpp
 	g++ -std=c++20 $(COMMON_WARN) -O2 endgame.cpp -o $@

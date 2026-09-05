@@ -1,3 +1,5 @@
+#include "action_code.hpp"
+
 char action_to_char(int action, int card) {
   char c = (1 << 7) | (action << 3) | card;
   return c;

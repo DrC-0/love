@@ -1,7 +1,5 @@
 #include "org_action_sequense.hpp"
-#include "org_action.hpp"
-
-static Org_Perfect_Hash oph;
+#include "action_code.hpp"
 
 void org_action_sequense::push(const char *p, size_t len) noexcept {
   //行動を1つ追加
