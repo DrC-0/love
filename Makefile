@@ -25,10 +25,10 @@ cfr: cfr.cpp $(COMMON_SRCS) $(COMMON_HDRS)
 cfr0: cfr_zero.cpp $(COMMON_SRCS) $(COMMON_HDRS)
 	g++ -std=c++20 $(COMMON_WARN) -O2 $(COMMON_DEFS) -DCFR $(COMMON_SRCS) cfr_zero.cpp -o $@
 
-cfrorg: cfr_org.cpp make_infset.hpp bf_position.hpp $(COMMON_SRCS) $(COMMON_HDRS)
+cfrorg: cfr_org.cpp org_tree.hpp visit_winlose.hpp bf_position.hpp $(COMMON_SRCS) $(COMMON_HDRS)
 	g++ -std=c++20 $(COMMON_WARN) -O2 $(COMMON_DEFS) -DCFR $(COMMON_SRCS) bf_position.hpp cfr_org.cpp -o $@
 
-cfrorgd: cfr_org.cpp make_infset.hpp bf_position.hpp $(COMMON_SRCS) $(COMMON_HDRS)
+cfrorgd: cfr_org.cpp org_tree.hpp visit_winlose.hpp bf_position.hpp $(COMMON_SRCS) $(COMMON_HDRS)
 	g++ -std=c++20 $(COMMON_WARN) -O2 $(COMMON_DEBUG_DEFS) -DCFR $(COMMON_SRCS) bf_position.hpp cfr_org.cpp -o cfrorg
 
 watch: cfr_org.cpp bf_position.hpp $(COMMON_SRCS) $(COMMON_HDRS)
