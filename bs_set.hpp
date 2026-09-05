@@ -1,7 +1,3 @@
-#ifndef MAX_NUM
-const int max_num[8] = {5, 2, 2, 2, 2, 1, 1, 1};
-#define MAX_NUM
-#endif
 #ifndef BS_HASH
 #define BS_HASH
 
@@ -10,8 +6,9 @@ const int max_num[8] = {5, 2, 2, 2, 2, 1, 1, 1};
 #include <iomanip>
 #include <compare>
 
+#include "card_table.hpp"
+
 // #include "State.hpp"
-// #include "log_util.hpp"
 // #include "endgame.hpp"
 
 struct State {

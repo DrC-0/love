@@ -21,14 +21,7 @@ using namespace std;
 #include "org_action.hpp"
 #include "loveletter.hpp"
 #include "action_code.hpp"
-
-extern std::map<std::string, infset> table_infset;
-// extern std::map<size_t, infset> table_infset;
-extern int cfr_switch;
-extern bool br_switch;
-extern int br_player;
-extern bool org_switch;
-
+#include "run_mode.hpp"
 
 node::node(const int input_open[3])
   : depth(0), hand1{0, 0}, hand2(0), open1(0), open2(0), deck{n1, n2, n3, n4, n5, n6, n7, n8}, open{0, 0, 0}, hide(0), turn(0), count_turn(0), barrier1(false), barrier2(false) {

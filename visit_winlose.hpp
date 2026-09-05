@@ -4,6 +4,7 @@
 #ifndef BF_POSITION_HPP
 #include "bf_position.hpp"
 #endif
+#include "analysis_points.hpp"
 #include <cassert>
 #include <map>
 #include <string>
@@ -11,14 +12,6 @@
 
 // cfr_org.cpp が定義するグローバル統計。他の展開部分 8 本と共有しているため
 // 廃止せず、判定器から更新する。
-extern unsigned long int p1_points;
-extern unsigned long int p2_points;
-extern unsigned long int rand_points;
-extern unsigned long int end_points;
-extern unsigned long int win_points[11];
-extern unsigned long int lose_points[11];
-extern unsigned long int decision_points[4];
-extern std::map<std::string, infset> table_infset;
 
 // 必勝・必敗判定と統計を行う判定器。
 // 再帰1段ぶんの退避は node::depth を添字にした固定長配列に置き、このクラスに閉じる。

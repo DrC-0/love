@@ -1,7 +1,3 @@
-#ifndef MAX_NUM
-const int max_num[8] = {5, 2, 2, 2, 2, 1, 1, 1};
-#define MAX_NUM
-#endif
 #ifndef BF_POSITION_HPP
 #define BF_POSITION_HPP
 #include <string>
@@ -12,6 +8,7 @@ const int max_num[8] = {5, 2, 2, 2, 2, 1, 1, 1};
 #include <cstdlib>
 
 #include "action_code.hpp"
+#include "card_table.hpp"
 // #include "endgame.hpp"
 
 using namespace std;

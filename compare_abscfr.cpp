@@ -22,17 +22,16 @@
 #include "org_action_sequense.hpp"
 #include "org_action.hpp"
 #include "loveletter.hpp"
-
 #include "action_code.hpp"
+#include "run_mode.hpp"
+#include "analysis_points.hpp"
+#include "card_table.hpp"
 
 using namespace std;
 
 void output_history(string s);
 void output_hash_history(string s, bool rnd);
 
-const double table_sign[2] = {1.0, -1.0};
-const char action_sign[8] = {'0', 'a', 'c', 'd', 'e', 'f', 'g', 'h'};
-const char card_sign[8][20] = {"兵士", "道化", "騎士", "僧侶", "魔術師", "将軍", "大臣", "姫"};
 int cfr_switch = 0;
 int cfr_player = 0;
 bool br_switch = false;

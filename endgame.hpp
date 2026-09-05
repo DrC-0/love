@@ -1,7 +1,3 @@
-#ifndef MAX_NUM
-const int max_num[8] = {5, 2, 2, 2, 2, 1, 1, 1};
-#define MAX_NUM
-#endif
 #ifndef EXP_REWARD_HPP
 #define EXP_REWARD_HPP
 
@@ -14,8 +10,8 @@ const int max_num[8] = {5, 2, 2, 2, 2, 1, 1, 1};
 #include <fstream>
 #include <iostream>
 
+#include "card_table.hpp"
 // #include "bf_position.hpp"
-// #include "log_util.hpp"
 #include "bs_set.hpp"
 
 enum Action {

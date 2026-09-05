@@ -6,6 +6,9 @@
 #include "rnd_action.hpp"
 #include "org_action_sequense.hpp"
 #include "loveletter.hpp"
+#include "action_code.hpp"
+#include "run_mode.hpp"
+#include "analysis_points.hpp"
 
 using namespace std;
 
@@ -17,7 +20,6 @@ unsigned long int p1_points = 0;
 unsigned long int p2_points = 0;
 unsigned long int rand_points = 0;
 unsigned long int end_points = 0;
-#include "action_code.hpp"
 
 #include "rnd_make_infset.hpp"
 #include "bf_position.hpp"

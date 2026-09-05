@@ -14,8 +14,9 @@
 #include "org_action_sequense.hpp"
 #include "loveletter.hpp"
 #include "save_load_abshistory.hpp"
-
 #include "action_code.hpp"
+#include "run_mode.hpp"
+#include "analysis_points.hpp"
 
 using namespace std;
 

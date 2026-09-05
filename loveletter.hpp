@@ -1,6 +1,9 @@
 #ifndef LOVELETTER
 #define LOVELETTER
 
+#include <map>
+#include <string>
+
 #ifdef USE_GOOD_MOVE //必勝検出
 // g++ -DUSE_GOOD_MOVE ...
 constexpr bool use_good_move = true;
@@ -137,6 +140,8 @@ public:
     : prob_action(0.5), pi_i(-1.0), depth(0), play(false), wizard(false) {}
 #endif
 };
+
+extern std::map<std::string, infset> table_infset;
 
 struct work_do_action {
   std::map<std::string, infset>::iterator infset_it;

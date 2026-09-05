@@ -12,8 +12,8 @@
 #include "org_action_sequense.hpp"
 #include "org_action.hpp"
 #include "loveletter.hpp"
-
 #include "action_code.hpp"
+#include "run_mode.hpp"
 
 using namespace std;
 
