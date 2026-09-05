@@ -26,13 +26,13 @@ cfr0: cfr_zero.cpp $(COMMON_SRCS) $(COMMON_HDRS)
 	g++ -std=c++20 $(COMMON_WARN) -O2 $(COMMON_DEFS) -DCFR $(COMMON_SRCS) cfr_zero.cpp -o $@
 
 cfrorg: cfr_org.cpp org_tree.hpp visit_winlose.hpp bf_position.hpp $(COMMON_SRCS) $(COMMON_HDRS)
-	g++ -std=c++20 $(COMMON_WARN) -O2 $(COMMON_DEFS) -DCFR $(COMMON_SRCS) bf_position.hpp cfr_org.cpp -o $@
+	g++ -std=c++20 $(COMMON_WARN) -O2 $(COMMON_DEFS) -DCFR $(COMMON_SRCS) cfr_org.cpp -o $@
 
 cfrorgd: cfr_org.cpp org_tree.hpp visit_winlose.hpp bf_position.hpp $(COMMON_SRCS) $(COMMON_HDRS)
-	g++ -std=c++20 $(COMMON_WARN) -O2 $(COMMON_DEBUG_DEFS) -DCFR $(COMMON_SRCS) bf_position.hpp cfr_org.cpp -o cfrorg
+	g++ -std=c++20 $(COMMON_WARN) -O2 $(COMMON_DEBUG_DEFS) -DCFR $(COMMON_SRCS) cfr_org.cpp -o cfrorg
 
 watch: cfr_org.cpp bf_position.hpp $(COMMON_SRCS) $(COMMON_HDRS)
-	g++ -std=c++20 $(COMMON_WARN) -O2 $(COMMON_DEFS) -DCFR $(COMMON_SRCS) bf_position.hpp watch_cfr.cpp -o $@
+	g++ -std=c++20 $(COMMON_WARN) -O2 $(COMMON_DEFS) -DCFR $(COMMON_SRCS) watch_cfr.cpp -o $@
 
 # --- Best Response系ターゲット (-DBEST_RESPONSE を使用) ---
 
@@ -43,11 +43,11 @@ brorg: br.cpp all_elements.hpp infset_dfs.hpp $(COMMON_SRCS) $(COMMON_HDRS)
 	g++ -std=c++20 $(COMMON_WARN) -O2 $(COMMON_DEFS) -DBEST_RESPONSE $(COMMON_SRCS) br.cpp -o $@
 
 win: infset_iswin.cpp save_load_abshistory.hpp bf_position.hpp $(COMMON_SRCS) $(COMMON_HDRS)
-	g++ -std=c++20 $(COMMON_WARN) -O2 $(COMMON_DEFS)  $(COMMON_SRCS) bf_position.hpp infset_iswin.cpp -o $@
+	g++ -std=c++20 $(COMMON_WARN) -O2 $(COMMON_DEFS)  $(COMMON_SRCS) infset_iswin.cpp -o $@
 
 
 comp: compare_abscfr.cpp save_load_abshistory.hpp bf_position.hpp $(COMMON_SRCS) $(COMMON_HDRS)
-	g++ -std=c++20 $(COMMON_WARN) -O2 $(COMMON_DEFS)  $(COMMON_SRCS) bf_position.hpp compare_abscfr.cpp -o $@
+	g++ -std=c++20 $(COMMON_WARN) -O2 $(COMMON_DEFS)  $(COMMON_SRCS) compare_abscfr.cpp -o $@
 
 # --- その他 ---
 test: test.cpp action_code.hpp action_code.cpp bf_position.hpp endgame.hpp

@@ -1,9 +1,7 @@
 #ifndef VISIT_WINLOSE_HPP
 #define VISIT_WINLOSE_HPP
 
-#ifndef BF_POSITION_HPP
 #include "bf_position.hpp"
-#endif
 #include "analysis_points.hpp"
 #include <cassert>
 #include <map>

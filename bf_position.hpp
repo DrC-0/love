@@ -11,9 +11,7 @@
 #include "card_table.hpp"
 // #include "endgame.hpp"
 
-using namespace std;
-
-bool commentablebfp = false;
+inline bool commentablebfp = false;
 
 struct bf_position {
   bool is_my_turn;
@@ -173,7 +171,7 @@ int count_deck(const int hand[2], const int trash[8]) {
   return count - 1;
 }
 
-bf_position::bf_position(int open[3], string history, bool rnd = true)
+bf_position::bf_position(int open[3], std::string history, bool rnd = true)
   : is_my_turn(false), is_sol_choice(false), is_wiz_choice(false),
     not7_flag_s(false), not7_flag_e(false), barrier_s(false), barrier_e(false), lt5_flag_s(false), lt5_flag_e(false), open_flag_s(0),
     open_flag_e(0), sol_flag_s{0, 0}, sol_flag_e{0, 0}, hand_s{0, 0}, trash{0, 0, 0, 0, 0, 0, 0, 0} {
@@ -183,7 +181,7 @@ bf_position::bf_position(int open[3], string history, bool rnd = true)
   long unsigned int head = 0;
   bool is_second_player = false;
   while(head < history.size()) {
-    string action;
+    std::string action;
     if(rnd) action = rph.get_action((unsigned char)history[head]);
     else action = oph.get_action((unsigned char)history[head]);
     int c2a = char_to_action(action[0]);
@@ -500,7 +498,7 @@ std::pair<int, int> is_terminated_win(const bf_position& bfp) {
   }
   if(bfp.count_deck() < 2 && bfp.hand_s[1] == 0 && !bfp.is_wiz_choice && !bfp.is_sol_choice) {
     int max = bfp.hand_e_max();
-    // if(max == 0) {cout << "Error: max card is 0" << endl; bfp.print(); exit(1);}
+    // if(max == 0) {std::cout << "Error: max card is 0" << std::endl; bfp.print(); exit(1);}
     if(max < bfp.hand_s[0]) return {bfp.hand_s[0], 0};
     else return {0, 0};
   }
@@ -593,7 +591,7 @@ std::pair<bool, int> use_win(const bf_position& bfp, int card) {
     return {false, 0};
   }
   if(card == 8) return {false, 0};
-  if(commentablebfp) cout << bfp.count_deck() << "use :" << card << endl;
+  if(commentablebfp) std::cout << bfp.count_deck() << "use :" << card << std::endl;
 
   struct bf_position next_bfp = bfp;
   next_bfp.is_my_turn = !bfp.is_my_turn;
@@ -605,7 +603,7 @@ std::pair<bool, int> use_win(const bf_position& bfp, int card) {
   } else if(bfp.hand_s[1] == card) {
     next_bfp.hand_s[1] = 0;
   } else {
-    cerr << "Error: card not in hand" << endl;
+    std::cerr << "Error: card not in hand" << std::endl;
     exit(2);
   }
 
@@ -716,7 +714,7 @@ std::pair<bool, int> enemy_turn_win(const bf_position& bfp) {
   for(int i = 0; i < 7; i++) {
     if(!all_true) break;
     if(bfp.deck_or_hand_e(i) > 0) {
-      if(commentablebfp) cout << bfp.count_deck() - 1 << "enemy :" << i + 1 << endl;
+      if(commentablebfp) std::cout << bfp.count_deck() - 1 << "enemy :" << i + 1 << std::endl;
       // 1. カード効果による即時敗北（深さ0の敗北として扱う）
       if(i + 1 == 1 && !bfp.barrier_s && bfp.hand_s[0] > 1) {
         all_true = false;
@@ -860,7 +858,7 @@ std::pair<bool, int> draw_win(const bf_position& bfp) {
       bf_position next_bfp = draw(bfp, i + 1);
       next_bfp.barrier_s = false;
       next_bfp.is_my_turn = !next_bfp.is_my_turn;
-      if(commentablebfp) cout << next_bfp.count_deck() << "draw " << i + 1 << endl;
+      if(commentablebfp) std::cout << next_bfp.count_deck() << "draw " << i + 1 << std::endl;
 
       // --- 自分の手札の選択 (ORノード) ---
       auto res0 = use_win(next_bfp, next_bfp.hand_s[0]);
@@ -1022,32 +1020,32 @@ std::vector<bf_position> ef_wizard(const bf_position& bfp, bool to_0p) {
 }
 
 void bf_position::print() const {
-  // cout << "depth : " << depth << endl;
-  cout << "barrier_s : " << barrier_s << " barrier_e : " << barrier_e << " is_my_turn : " << is_my_turn << endl;
-  cout << "is_sol_choice : " << is_sol_choice << " is_wiz_choice : " << is_wiz_choice << " deck : " << count_deck() << endl;
-  cout << "open_flag_e : " << open_flag_e << " sol_flag_e : " << sol_flag_e[0] << " " << sol_flag_e[1] << " lt5_flag_e : " << lt5_flag_e << " not7_flag_e : " << not7_flag_e << endl;
-  cout << "open_flag_s : " << open_flag_s << " sol_flag_s : " << sol_flag_s[0] << " " << sol_flag_s[1] << " lt5_flag_s : " << lt5_flag_s << " not7_flag_s : " << not7_flag_s << endl;
-  cout << "hand_s : " << hand_s[0] << " " << hand_s[1] << " ";
-  cout << "trash:";
+  // std::cout << "depth : " << depth << std::endl;
+  std::cout << "barrier_s : " << barrier_s << " barrier_e : " << barrier_e << " is_my_turn : " << is_my_turn << std::endl;
+  std::cout << "is_sol_choice : " << is_sol_choice << " is_wiz_choice : " << is_wiz_choice << " deck : " << count_deck() << std::endl;
+  std::cout << "open_flag_e : " << open_flag_e << " sol_flag_e : " << sol_flag_e[0] << " " << sol_flag_e[1] << " lt5_flag_e : " << lt5_flag_e << " not7_flag_e : " << not7_flag_e << std::endl;
+  std::cout << "open_flag_s : " << open_flag_s << " sol_flag_s : " << sol_flag_s[0] << " " << sol_flag_s[1] << " lt5_flag_s : " << lt5_flag_s << " not7_flag_s : " << not7_flag_s << std::endl;
+  std::cout << "hand_s : " << hand_s[0] << " " << hand_s[1] << " ";
+  std::cout << "trash:";
   for(int i = 0; i < 8; i++) {
-    cout << trash[i] << " ";
+    std::cout << trash[i] << " ";
   }
-  cout << " deck_or_hand_e : ";
+  std::cout << " deck_or_hand_e : ";
   for(int i = 0; i < 8; i++) {
-    cout << deck_or_hand_e(i) << " ";
+    std::cout << deck_or_hand_e(i) << " ";
   }
-  cout << endl;
-  cout << "hand_e: ";
+  std::cout << std::endl;
+  std::cout << "hand_e: ";
   for(int i = 0; i < 8; i++) {
-    cout << hand_e(i) << " ";
+    std::cout << hand_e(i) << " ";
   }
-  cout << endl
-       << endl;
+  std::cout << std::endl
+            << std::endl;
 }
 
 [[noreturn]] void exit_with_print(const bf_position& bfp, const char* context) {
   bfp.print();
-  cerr << "Error: " << context << endl;
+  std::cerr << "Error: " << context << std::endl;
   exit(2);
 }
 
@@ -1108,13 +1106,13 @@ std::string actions_to_string(const std::vector<int>& actions, bool rnd) {
   return history;
 }
 
-string get_actions_history(std::string s, bool rnd = true) {
+std::string get_actions_history(std::string s, bool rnd = true) {
   long unsigned int head = 0;
   int turn = 0;
   bool bal[2] = {false, false};
-  string history = "";
+  std::string history = "";
   while(head < s.size()) {
-    string action;
+    std::string action;
     if(rnd) {
       action = rph.get_action((unsigned char)s[head]);
     } else {
@@ -1124,21 +1122,21 @@ string get_actions_history(std::string s, bool rnd = true) {
     head++;
     int num1 = c2a / 10;
     int num2 = c2a % 10;
-    history += to_string(c2a);
-    // cout << c2a;
+    history += std::to_string(c2a);
+    // std::cout << c2a;
     bal[turn] = false;
     if(num1 == 4) {
       if(num2 == 0 && !bal[1 - turn] && action.size() > 1) {
         int c2t = char_to_twonum(action[1]);
-        history += to_string(c2t % 10);
+        history += std::to_string(c2t % 10);
       } else if(num2 == 1 && !bal[1 - turn]) {
         int c2t = char_to_twonum(action[1]);
-        history += to_string(c2t % 10);
-        // cout << (c2t % 10);
+        history += std::to_string(c2t % 10);
+        // std::cout << (c2t % 10);
       } else if(num2 == 2 && !bal[1 - turn]) {
         int c2t = char_to_twonum(action[1]);
-        history += to_string(c2t % 10);
-        // cout << (c2t % 10);
+        history += std::to_string(c2t % 10);
+        // std::cout << (c2t % 10);
       } else if(num2 == 3) {
         // 次の行動で turn が反転するため bal[1 - turn] として読まれるが,
         // cppcheck は添字の変化を追えず未使用と誤検知する
@@ -1146,28 +1144,28 @@ string get_actions_history(std::string s, bool rnd = true) {
         bal[turn] = true;
       } else if(num2 == 4) {
         int c2w = char_to_wizard(action[1]);
-        history += to_string(c2w / 100);
-        history += to_string((c2w / 10) % 10);
-        history += to_string(c2w % 10);
-        // cout << c2w / 100 << ((c2w / 10) % 10) << (c2w % 10);
-        // cout << c2w;
+        history += std::to_string(c2w / 100);
+        history += std::to_string((c2w / 10) % 10);
+        history += std::to_string(c2w % 10);
+        // std::cout << c2w / 100 << ((c2w / 10) % 10) << (c2w % 10);
+        // std::cout << c2w;
       } else if(num2 == 5 && !bal[1 - turn]) {
         int c2t = char_to_twonum(action[1]);
-        history += to_string(c2t / 10);
-        history += to_string(c2t % 10);
-        // cout << (c2t / 10) << (c2t % 10);
+        history += std::to_string(c2t / 10);
+        history += std::to_string(c2t % 10);
+        // std::cout << (c2t / 10) << (c2t % 10);
       }
       turn = !turn;
     }
-    // cout << " ";
+    // std::cout << " ";
     history += " ";
   }
-  // cout << endl;
+  // std::cout << std::endl;
   return history;
 }
 
 void output_actions_history(std::string s, bool rnd = true) {
-  cout << get_actions_history(s, rnd) << endl;
+  std::cout << get_actions_history(s, rnd) << std::endl;
 }
 
 bf_position swap_player(const bf_position& bfp, const int hand) {
@@ -1232,7 +1230,7 @@ std::pair<bool, int> use_lose(const bf_position& bfp, int card) {
   } else if(bfp.hand_s[1] == card) {
     next_bfp.hand_s[1] = 0;
   } else {
-    cerr << "Error: card not in hand" << endl;
+    std::cerr << "Error: card not in hand" << std::endl;
     exit(2);
   }
 
