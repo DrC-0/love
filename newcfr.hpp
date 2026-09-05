@@ -1,3 +1,10 @@
+#ifndef NEWCFR_HPP
+#define NEWCFR_HPP
+
+#include "loveletter.hpp"
+#include "analysis_points.hpp"
+#include "card_table.hpp"
+
 enum game_tree_mode {
   MRND_DS,
   MCFR,
@@ -522,3 +529,5 @@ double wizard_self(node &n) {
   }
   return reward;
 }
+
+#endif

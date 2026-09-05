@@ -1,3 +1,9 @@
+#ifndef RND_MAKE_INFSET_HPP
+#define RND_MAKE_INFSET_HPP
+
+#include "loveletter.hpp"
+#include "analysis_points.hpp"
+
 void rnd_ds_put_hide_card(node &n);
 void rnd_ds_draw_p1_init(node &n);
 void rnd_ds_draw_p2_init(node &n);
@@ -353,3 +359,4 @@ void rnd_ds_wizard_self(node &n) {
   }
   return;
 }
+#endif

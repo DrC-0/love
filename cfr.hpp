@@ -1,3 +1,9 @@
+#ifndef CFR_HPP
+#define CFR_HPP
+
+#include "loveletter.hpp"
+#include "card_table.hpp"
+
 double put_hide_card(node &n);
 double draw_p1_init(node &n);
 double draw_p2_init(node &n);
@@ -370,3 +376,5 @@ double wizard_self(node &n) {
   }
   return reward;
 }
+
+#endif

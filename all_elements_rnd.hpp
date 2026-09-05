@@ -1,4 +1,10 @@
+#ifndef ALL_ELEMENTS_RND_HPP
+#define ALL_ELEMENTS_RND_HPP
+
 #include "rnd_action.hpp"
+#include "loveletter.hpp"
+#include "run_mode.hpp"
+#include "action_code.hpp"
 
 void all_put_hide_card(string &h, unsigned long int head, node &n);
 void all_draw_p1_init(string &h, unsigned long int head, node &n);
@@ -517,3 +523,4 @@ void all_soldior(string &h, unsigned long int head, node &n) {
   }
   return;
 }
+#endif

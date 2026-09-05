@@ -1,3 +1,9 @@
+#ifndef CFR_EXP_REWARD_HPP
+#define CFR_EXP_REWARD_HPP
+
+#include "loveletter.hpp"
+#include "card_table.hpp"
+
 double ut_put_hide_card(node &n);
 double ut_draw_p1_init(node &n);
 double ut_draw_p2_init(node &n);
@@ -369,3 +375,5 @@ double ut_wizard_self(node &n) {
   }
   return reward;
 }
+
+#endif

@@ -1,3 +1,12 @@
+#ifndef INFSET_DFS_HPP
+#define INFSET_DFS_HPP
+
+#include "loveletter.hpp"
+#include "analysis_points.hpp"
+#include "run_mode.hpp"
+#include "action_code.hpp"
+#include "card_table.hpp"
+
 double infset_dfs_put_hide_card(node &n, vector<string> &m, int sign);
 double infset_dfs_draw_p1_init(node &n, vector<string> &m, int sign);
 double infset_dfs_draw_p2_init(node &n, vector<string> &m, int sign);
@@ -871,3 +880,4 @@ void all_exp_reward(string his_p, int open[3], vector<string> &m, int sign, int 
 
   return;
 }
+#endif
