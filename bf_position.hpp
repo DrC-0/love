@@ -91,7 +91,27 @@ std::pair<bool, int> draw_win(const bf_position& bfp);
 std::pair<bool, int> enemy_turn_win(const bf_position& bfp);
 std::pair<bool, int> sol_win(const bf_position& bfp, int card);
 std::pair<bool, int> wiz_win(const bf_position& bfp, bool to0p);
-std::vector<bf_position> ef_wizard(const bf_position& bfp, bool to_0p);
+// ef_wizard の候補置き場。呼び出し側は1回舐めて捨てるだけなので、
+// std::vector を作らず呼び出し側のスタックに置く。要素は
+// for(int i = 0; i < 8; i++) の中で高々1回ずつ push されるので最大8個。
+struct ef_wizard_preds {
+  bf_position items[8];
+  int n = 0;
+  void push(const bf_position& b) {
+    assert(n < 8);
+    items[n++] = b;
+  }
+  bool empty() const {
+    return n == 0;
+  }
+  const bf_position* begin() const {
+    return items;
+  }
+  const bf_position* end() const {
+    return items + n;
+  }
+};
+void ef_wizard(const bf_position& bfp, bool to_0p, ef_wizard_preds& out);
 bf_position draw(const bf_position& bfp, int draw_card);
 bf_position swap_player(const bf_position& bfp, const int hand);
 unsigned char action2char(int x, bool rnd);
@@ -788,7 +808,7 @@ std::pair<bool, int> enemy_turn_win(const bf_position& bfp) {
         if(bfp.open_e() == 7) continue;
 
         // 魔術師専用の集約ラムダ
-        auto eval_wiz_preds = [&](const std::vector<bf_position>& preds) -> std::pair<bool, int> {
+        auto eval_wiz_preds = [&](const ef_wizard_preds& preds) -> std::pair<bool, int> {
           if(preds.empty()) return {false, 0}; // 空なら敗北(深さ0)扱い
           int local_max_f = -1;
           bool local_all_true = true;
@@ -800,10 +820,12 @@ std::pair<bool, int> enemy_turn_win(const bf_position& bfp) {
           return {local_all_true, local_all_true ? local_max_f : 0};
         };
 
-        std::vector<bf_position> preds_toself = ef_wizard(next_bfp, true);
+        ef_wizard_preds preds_toself;
+        ef_wizard(next_bfp, true, preds_toself);
         auto res_self = eval_wiz_preds(preds_toself);
 
-        std::vector<bf_position> preds_toenemy = ef_wizard(next_bfp, false);
+        ef_wizard_preds preds_toenemy;
+        ef_wizard(next_bfp, false, preds_toenemy);
         auto res_enemy = eval_wiz_preds(preds_toenemy);
 
         if(res_self.first && res_enemy.first) max_f = std::max(res_self.second, res_enemy.second);
@@ -947,7 +969,8 @@ std::pair<bool, int> wiz_win(const bf_position& bfp, bool to0p) {
   if(to0p && bfp.hand_s[0] == 7) return {false, 0};
   struct bf_position next_bfp = bfp;
   next_bfp.is_wiz_choice = false;
-  std::vector<bf_position> preds = ef_wizard(next_bfp, to0p);
+  ef_wizard_preds preds;
+  ef_wizard(next_bfp, to0p, preds);
   if(preds.empty()) return {false, 0};
 
   int local_max_f = -1;
@@ -963,14 +986,13 @@ std::pair<bool, int> wiz_win(const bf_position& bfp, bool to0p) {
   return {local_all_true, local_all_true ? local_max_f + 1 : 0};
 }
 
-std::vector<bf_position> ef_wizard(const bf_position& bfp, bool to_0p) {
+void ef_wizard(const bf_position& bfp, bool to_0p, ef_wizard_preds& bfps) {
   CW_BUMP(ef_wizard);
-  std::vector<bf_position> bfps;
   if(bfp.is_my_turn == false) { // use_abswinの最初でturnを切り替えるためturn==falseは0playerのターン
     if(to_0p) {
       if(bfp.hand_s[0] == 8) {
         // return false;
-        return bfps;
+        return;
       }
       // open_e() はこのループの中で不変 (bfp は const 参照) なので括り出す。
       const int open_card = bfp.open_e();
@@ -983,17 +1005,17 @@ std::vector<bf_position> ef_wizard(const bf_position& bfp, bool to_0p) {
           next_bfp.hand_s[0] = i + 1; //手札引く
           next_bfp.reset_flag(true); //自分のフラグリセット
           CW_BUMP(ef_wizard_elem);
-          bfps.push_back(next_bfp);
+          bfps.push(next_bfp);
         }
       }
-      return bfps;
+      return;
     } else {
       if(bfp.barrier_e) {
         bf_position next_bfp = bfp;
         next_bfp.is_wiz_choice = false;
         CW_BUMP(ef_wizard_elem);
-        bfps.push_back(next_bfp);
-        return bfps;
+        bfps.push(next_bfp);
+        return;
       }
       // validate_hand_e_candidate(bfp, "wiz");
       for(int i = 0; i < 8; i++) {
@@ -1004,10 +1026,10 @@ std::vector<bf_position> ef_wizard(const bf_position& bfp, bool to_0p) {
           next_bfp.is_my_turn = !bfp.is_my_turn;
           next_bfp.reset_flag(false); //相手のフラグリセット
           CW_BUMP(ef_wizard_elem);
-          bfps.push_back(next_bfp);
+          bfps.push(next_bfp);
         }
       }
-      return bfps;
+      return;
     }
   } else { // is_my_turn == true
     if(to_0p) {
@@ -1015,8 +1037,8 @@ std::vector<bf_position> ef_wizard(const bf_position& bfp, bool to_0p) {
         bf_position next_bfp = bfp;
         next_bfp.is_wiz_choice = false;
         CW_BUMP(ef_wizard_elem);
-        bfps.push_back(next_bfp);
-        return bfps;
+        bfps.push(next_bfp);
+        return;
       }
       // open_e() はこのループの中で不変 (bfp は const 参照) なので括り出す。
       const int open_card = bfp.open_e();
@@ -1029,13 +1051,13 @@ std::vector<bf_position> ef_wizard(const bf_position& bfp, bool to_0p) {
           next_bfp.hand_s[0] = i + 1; //手札引く
           next_bfp.reset_flag(true); //自分のフラグリセット
           CW_BUMP(ef_wizard_elem);
-          bfps.push_back(next_bfp);
+          bfps.push(next_bfp);
         }
       }
-      return bfps;
+      return;
     } else {
       if(bfp.open_e() == 8) {
-        return bfps;
+        return;
       }
       // validate_hand_e_candidate(bfp, "wiz");
       for(int i = 0; i < 8; i++) {
@@ -1046,10 +1068,10 @@ std::vector<bf_position> ef_wizard(const bf_position& bfp, bool to_0p) {
           next_bfp.trash[i] += 1;
           next_bfp.reset_flag(false); //相手のフラグリセット
           CW_BUMP(ef_wizard_elem);
-          bfps.push_back(next_bfp);
+          bfps.push(next_bfp);
         }
       }
-      return bfps;
+      return;
     }
   }
 }
@@ -1375,7 +1397,8 @@ std::pair<bool, int> wiz_lose(const bf_position& bfp, bool to0p) {
   CW_BUMP(wiz_lose);
   if(!to0p && bfp.hand_e(7) && !bfp.barrier_e) return {false, 0};
   if(to0p && bfp.hand_s[0] == 7) return {true, 0};
-  std::vector<bf_position> preds = ef_wizard(bfp, to0p);
+  ef_wizard_preds preds;
+  ef_wizard(bfp, to0p, preds);
   if(preds.empty()) return {false, 0};
   int local_max_f = -1;
   for(const auto& p : preds) {
