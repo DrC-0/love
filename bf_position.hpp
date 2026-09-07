@@ -60,6 +60,8 @@ struct bf_position {
   int open_e() const;
   int open_s() const;
   bool deck(int i) const;
+  // open_e() は8要素ループの中で不変なので、括り出した値を渡せる版。
+  bool deck(int i, int open_card) const;
   bool have_s(int card) const;
   int other_hand_s(int card) const;
   int count_deck() const;
@@ -357,10 +359,13 @@ int bf_position::open_s() const {
   return card;
 }
 
-bool bf_position::deck(int i) const {
+bool bf_position::deck(int i, int open_card) const {
   CW_BUMP(deck);
-  int open_card = open_e();
   return deck_or_hand_e(i) > (i + 1 == open_card ? 1 : 0);
+}
+
+bool bf_position::deck(int i) const {
+  return deck(i, open_e());
 }
 
 bool bf_position::have_s(int card) const {
@@ -867,9 +872,11 @@ std::pair<bool, int> draw_win(const bf_position& bfp) {
   bool all_true = true;
   int max_f = -1;
 
+  // open_e() はこのループの中で不変 (bfp は const 参照) なので括り出す。
+  const int open_card = bfp.open_e();
   for(int i = 0; i < 8; i++) {
     if(!all_true) break;
-    if(bfp.deck(i)) {
+    if(bfp.deck(i, open_card)) {
       bf_position next_bfp = draw(bfp, i + 1);
       next_bfp.barrier_s = false;
       next_bfp.is_my_turn = !next_bfp.is_my_turn;
@@ -965,8 +972,10 @@ std::vector<bf_position> ef_wizard(const bf_position& bfp, bool to_0p) {
         // return false;
         return bfps;
       }
+      // open_e() はこのループの中で不変 (bfp は const 参照) なので括り出す。
+      const int open_card = bfp.open_e();
       for(int i = 0; i < 8; i++) {
-        if(bfp.deck(i)) {
+        if(bfp.deck(i, open_card)) {
           bf_position next_bfp = bfp;
           next_bfp.is_wiz_choice = false;
           next_bfp.is_my_turn = !bfp.is_my_turn;
@@ -1009,8 +1018,10 @@ std::vector<bf_position> ef_wizard(const bf_position& bfp, bool to_0p) {
         bfps.push_back(next_bfp);
         return bfps;
       }
+      // open_e() はこのループの中で不変 (bfp は const 参照) なので括り出す。
+      const int open_card = bfp.open_e();
       for(int i = 0; i < 8; i++) {
-        if(bfp.deck(i)) {
+        if(bfp.deck(i, open_card)) {
           bf_position next_bfp = bfp;
           next_bfp.is_wiz_choice = false;
           next_bfp.is_my_turn = !bfp.is_my_turn;
