@@ -533,7 +533,9 @@ std::pair<int, int> is_terminated_win(const bf_position& bfp) {
   if(bfp.have_s(7) && bfp.hand_s[0] + bfp.hand_s[1] >= 12) {
     return {0, 0};
   }
-  if(bfp.count_deck() < 2 && bfp.hand_s[1] == 0 && !bfp.is_wiz_choice && !bfp.is_sol_choice) {
+  // count_deck() は8要素ループなので、スカラの比較3つを先に評価する。
+  // どれも副作用が無いので && の順序を入れ替えても意味は変わらない。
+  if(bfp.hand_s[1] == 0 && !bfp.is_wiz_choice && !bfp.is_sol_choice && bfp.count_deck() < 2) {
     int max = bfp.hand_e_max();
     // if(max == 0) {std::cout << "Error: max card is 0" << std::endl; bfp.print(); exit(1);}
     if(max < bfp.hand_s[0]) return {bfp.hand_s[0], 0};
@@ -1246,7 +1248,9 @@ std::vector<std::pair<int, int>> is_lose(const bf_position& bfp) {
   if(bfp.have_s(7) && bfp.hand_s[0] + bfp.hand_s[1] >= 12) {
     return {{9, 0}};
   }
-  if(bfp.count_deck() < 2 && bfp.hand_s[1] == 0 && !bfp.is_wiz_choice && !bfp.is_sol_choice) {
+  // count_deck() は8要素ループなので、スカラの比較3つを先に評価する。
+  // どれも副作用が無いので && の順序を入れ替えても意味は変わらない。
+  if(bfp.hand_s[1] == 0 && !bfp.is_wiz_choice && !bfp.is_sol_choice && bfp.count_deck() < 2) {
     int min = bfp.hand_e_min();
     if(min > bfp.hand_s[0]) return {{9, 0}};
     else return {};
