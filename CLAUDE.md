@@ -74,9 +74,29 @@ rnd 側は `rnd_make_infset.hpp` が情報集合表を作り、`infset_iswin.cpp
 
 ## Git
 
-- master に直接積まず、作業ブランチを切ってコミットし、確認後に `git merge --ff-only` で master に取り込む。
+- **どんなに小さな変更でも作業ブランチを切る。** シェルスクリプトを1本 gitignore から
+  外すような変更でも master に直接積まない。
+- 確認後に master へ取り込む。取り込み方は2通りあり、**後始末が違う**。
+  - **`git merge --ff-only`**: git がマージを認識するので `git branch -d` が素直に通る。
+    枝の履歴を残したいときはこちら。
+  - **スカッシュマージ**: git はマージとして記録しない。ブランチは永久に「未マージ」の
+    ままになり、`git branch --merged` にも出ず、再度マージすると**取り消したはずの
+    変更まで復活する**。そのため、**明言がない限りスカッシュ後はタグにして削除する**。
+    ```
+    git tag archive/<ブランチ名> <ブランチ名>
+    git push origin archive/<ブランチ名>
+    git branch -D <ブランチ名>
+    git push origin --delete <ブランチ名>
+    ```
+    タグはマージの候補に出ないので、誤って取り込む経路が無くなる。中身は
+    `git log archive/<ブランチ名>` で辿れる。
 - コミットメッセージは日本語。
-- `*.txt` `*.csv` `*.bin` `*.sh` と各バイナリ、`test.cpp` は gitignore 済み。実験結果のファイルをコミットしようとしないこと。
+- gitignore 済み: `*.txt` `*.csv` `*.bin` `*.out`、`logs/`、各ターゲットのバイナリ
+  (`cfrorg` `cfrorgcnt` `win` など)、`test.cpp`、`scp.sh`、`.env`、`credentials.json`。
+  実験結果のファイルをコミットしようとしないこと。**`git add -A` はバイナリを拾うので、
+  コミット前に `git status` で中身を確認する**。
+- 環境ごとに違う値 (スプレッドシートの ID、scp の送信先) は `.env` に置く。雛形は
+  `.env.example`。**このリポジトリは public なので、秘密や実ホスト名をコミットしない**。
 
 ## 参考
 
