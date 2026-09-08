@@ -1,8 +1,8 @@
 *.txt
 *.bin
 *.out
+logs/
 *.csv
-*.sh
 cfr
 cfr0
 brorg
@@ -15,4 +15,6 @@ cfrorg
 cfrorgcnt
 watch
 test.cpp
+scp.sh
+.env
 credentials.json

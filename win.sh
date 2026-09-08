@@ -1,0 +1,55 @@
+#!/bin/bash
+# 部分ゲーム92本を12並列で流す (必勝・必敗判定)。
+#
+# 結果の置き場:
+#   logs/win/log/<部分ゲーム>.log    標準出力と標準エラー
+#   logs/win/time/<部分ゲーム>.time  経過秒 CPU秒 最大RSS(KB)
+#   logs/win/summary.txt             所要時間の降順にまとめたもの
+#   logs/win/started_at              開始時刻 (epoch)
+#   logs/win/finished_at             終了時刻 (epoch)
+#   logs/win/run.log                 このスクリプト自身の出力
+#
+# 普段は summary.txt だけ見れば済む。個別のログが要るときだけ log/ に降りる。
+
+LOG_DIR=logs/win
+
+summarize() {
+    local start end
+    start=$(cat "$LOG_DIR/started_at" 2>/dev/null)
+    end=$(cat "$LOG_DIR/finished_at" 2>/dev/null)
+    {
+        echo "# 部分ゲーム 経過秒 CPU秒 最大RSS(KB)"
+        for f in "$LOG_DIR"/time/*.time; do
+            [ -e "$f" ] || continue
+            printf '%s %s\n' "$(basename "$f" .time)" "$(tr '\n' ' ' < "$f")"
+        done | sort -k2 -rn
+        if [ -n "$start" ] && [ -n "$end" ]; then
+            echo "# 全体 $((end - start)) 秒 ($(date -d "@$start" '+%F %T') 〜 $(date -d "@$end" '+%F %T'))"
+        fi
+    } > "$LOG_DIR/summary.txt"
+}
+
+run_win() {
+    mkdir -p "$LOG_DIR/log" "$LOG_DIR/time"
+    date +%s > "$LOG_DIR/started_at"
+
+    # $0 に LOG_DIR を渡し、$1 $2 $3 が部分ゲームの3枚になる
+    xargs -a all_subgames.txt -n 3 -P 12 sh -c '
+        /usr/bin/time -f "%e %U %M" -o "$0/time/$1$2$3.time" \
+            ./win "$@" > "$0/log/$1$2$3.log" 2>&1
+    ' "$LOG_DIR"
+
+    date +%s > "$LOG_DIR/finished_at"
+    summarize
+}
+
+mkdir -p "$LOG_DIR"
+
+if [ "${1:-}" = "--foreground" ]; then
+    run_win
+else
+    (
+        trap '' HUP
+        run_win
+    ) > "$LOG_DIR/run.log" 2>&1 &
+fi
