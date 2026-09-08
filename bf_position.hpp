@@ -9,6 +9,7 @@
 
 #include "action_code.hpp"
 #include "card_table.hpp"
+#include "count_work.hpp"
 // #include "endgame.hpp"
 
 inline bool commentablebfp = false;
@@ -59,6 +60,8 @@ struct bf_position {
   int open_e() const;
   int open_s() const;
   bool deck(int i) const;
+  // open_e() は8要素ループの中で不変なので、括り出した値を渡せる版。
+  bool deck(int i, int open_card) const;
   bool have_s(int card) const;
   int other_hand_s(int card) const;
   int count_deck() const;
@@ -88,7 +91,27 @@ std::pair<bool, int> draw_win(const bf_position& bfp);
 std::pair<bool, int> enemy_turn_win(const bf_position& bfp);
 std::pair<bool, int> sol_win(const bf_position& bfp, int card);
 std::pair<bool, int> wiz_win(const bf_position& bfp, bool to0p);
-std::vector<bf_position> ef_wizard(const bf_position& bfp, bool to_0p);
+// ef_wizard の候補置き場。呼び出し側は1回舐めて捨てるだけなので、
+// std::vector を作らず呼び出し側のスタックに置く。要素は
+// for(int i = 0; i < 8; i++) の中で高々1回ずつ push されるので最大8個。
+struct ef_wizard_preds {
+  bf_position items[8];
+  int n = 0;
+  void push(const bf_position& b) {
+    assert(n < 8);
+    items[n++] = b;
+  }
+  bool empty() const {
+    return n == 0;
+  }
+  const bf_position* begin() const {
+    return items;
+  }
+  const bf_position* end() const {
+    return items + n;
+  }
+};
+void ef_wizard(const bf_position& bfp, bool to_0p, ef_wizard_preds& out);
 bf_position draw(const bf_position& bfp, int draw_card);
 bf_position swap_player(const bf_position& bfp, const int hand);
 unsigned char action2char(int x, bool rnd);
@@ -111,10 +134,12 @@ int trash_and_hand_s(const int i, const int hand[2], const int trash[8]) {
 }
 
 int deck_or_hand_e(const int i, const int hand[2], const int trash[8]) {
+  CW_BUMP(deck_or_hand_e);
   return max_num[i] - trash_and_hand_s(i, hand, trash);
 }
 
 bool hand_e(const int i, const int hand[2], const int trash[8], const int open_flag_e, const int sol_flag_e[2], const bool lt5_flag_e, const bool not7_flag_e) {
+  CW_BUMP(hand_e);
   if(open_flag_e > 0) { //手札が確定している場合
     if(open_flag_e == i + 1) {
       return true;
@@ -175,6 +200,7 @@ bf_position::bf_position(int open[3], std::string history, bool rnd = true)
   : is_my_turn(false), is_sol_choice(false), is_wiz_choice(false),
     not7_flag_s(false), not7_flag_e(false), barrier_s(false), barrier_e(false), lt5_flag_s(false), lt5_flag_e(false), open_flag_s(0),
     open_flag_e(0), sol_flag_s{0, 0}, sol_flag_e{0, 0}, hand_s{0, 0}, trash{0, 0, 0, 0, 0, 0, 0, 0} {
+  CW_BUMP(bfp_from_history);
   for(int i = 0; i < 3; i++) {
     trash[open[i] - 1] += 1;
   }
@@ -325,6 +351,7 @@ bool bf_position::hand_s_est(int i) const {
 }
 
 int bf_position::open_e() const {
+  CW_BUMP(open_e);
   int card = 0;
   for(int i = 0; i < 8; i++) {
     if(hand_e(i)) {
@@ -352,9 +379,13 @@ int bf_position::open_s() const {
   return card;
 }
 
-bool bf_position::deck(int i) const {
-  int open_card = open_e();
+bool bf_position::deck(int i, int open_card) const {
+  CW_BUMP(deck);
   return deck_or_hand_e(i) > (i + 1 == open_card ? 1 : 0);
+}
+
+bool bf_position::deck(int i) const {
+  return deck(i, open_e());
 }
 
 bool bf_position::have_s(int card) const {
@@ -372,6 +403,7 @@ int bf_position::other_hand_s(int card) const {
 }
 
 int bf_position::count_deck() const {
+  CW_BUMP(count_deck);
   int count = 0;
   for(int i = 0; i < 8; i++) {
     count += deck_or_hand_e(i);
@@ -380,6 +412,7 @@ int bf_position::count_deck() const {
 }
 
 int bf_position::hand_e_max() const {
+  CW_BUMP(hand_e_max);
   int max_card = 0;
   for(int i = 0; i < 8; i++) {
     if(hand_e(i)) {
@@ -390,6 +423,7 @@ int bf_position::hand_e_max() const {
 }
 
 int bf_position::hand_e_min() const {
+  CW_BUMP(hand_e_min);
   int min_card = 0;
   for(int i = 0; i < 8; i++) {
     if(hand_e(i)) {
@@ -402,6 +436,7 @@ int bf_position::hand_e_min() const {
 }
 
 int bf_position::deck_or_hand_e_min() const {
+  CW_BUMP(deck_or_hand_e_min);
   int min_card = 0;
   for(int i = 0; i < 8; i++) {
     if(deck_or_hand_e(i) > 0) {
@@ -456,6 +491,7 @@ void bf_position::reset_flag(bool is_self) {
 }
 
 bf_position reset_flag_by_use(const bf_position& bfp, bool to_self, int card) {
+  CW_BUMP(reset_flag_by_use);
   struct bf_position next_bfp = bfp;
   if(to_self) {
     if(bfp.open_flag_s > 0 && bfp.open_flag_s == card) {
@@ -493,10 +529,13 @@ bf_position reset_flag_by_use(const bf_position& bfp, bool to_self, int card) {
 }
 
 std::pair<int, int> is_terminated_win(const bf_position& bfp) {
+  CW_BUMP(is_terminated_win);
   if(bfp.have_s(7) && bfp.hand_s[0] + bfp.hand_s[1] >= 12) {
     return {0, 0};
   }
-  if(bfp.count_deck() < 2 && bfp.hand_s[1] == 0 && !bfp.is_wiz_choice && !bfp.is_sol_choice) {
+  // count_deck() は8要素ループなので、スカラの比較3つを先に評価する。
+  // どれも副作用が無いので && の順序を入れ替えても意味は変わらない。
+  if(bfp.hand_s[1] == 0 && !bfp.is_wiz_choice && !bfp.is_sol_choice && bfp.count_deck() < 2) {
     int max = bfp.hand_e_max();
     // if(max == 0) {std::cout << "Error: max card is 0" << std::endl; bfp.print(); exit(1);}
     if(max < bfp.hand_s[0]) return {bfp.hand_s[0], 0};
@@ -584,6 +623,7 @@ std::pair<int, int> is_win(const bf_position& bfp) {
 }
 
 std::pair<bool, int> use_win(const bf_position& bfp, int card) {
+  CW_BUMP(use_win);
   auto t = is_terminated_win(bfp);
   if(t.first != -1) return t;
 
@@ -705,6 +745,7 @@ std::pair<bool, int> use_win(const bf_position& bfp, int card) {
 }
 
 std::pair<bool, int> enemy_turn_win(const bf_position& bfp) {
+  CW_BUMP(enemy_turn_win);
   auto t = is_terminated_win(bfp);
   if(t.first != -1) return t;
 
@@ -769,7 +810,7 @@ std::pair<bool, int> enemy_turn_win(const bf_position& bfp) {
         if(bfp.open_e() == 7) continue;
 
         // 魔術師専用の集約ラムダ
-        auto eval_wiz_preds = [&](const std::vector<bf_position>& preds) -> std::pair<bool, int> {
+        auto eval_wiz_preds = [&](const ef_wizard_preds& preds) -> std::pair<bool, int> {
           if(preds.empty()) return {false, 0}; // 空なら敗北(深さ0)扱い
           int local_max_f = -1;
           bool local_all_true = true;
@@ -781,10 +822,12 @@ std::pair<bool, int> enemy_turn_win(const bf_position& bfp) {
           return {local_all_true, local_all_true ? local_max_f : 0};
         };
 
-        std::vector<bf_position> preds_toself = ef_wizard(next_bfp, true);
+        ef_wizard_preds preds_toself;
+        ef_wizard(next_bfp, true, preds_toself);
         auto res_self = eval_wiz_preds(preds_toself);
 
-        std::vector<bf_position> preds_toenemy = ef_wizard(next_bfp, false);
+        ef_wizard_preds preds_toenemy;
+        ef_wizard(next_bfp, false, preds_toenemy);
         auto res_enemy = eval_wiz_preds(preds_toenemy);
 
         if(res_self.first && res_enemy.first) max_f = std::max(res_self.second, res_enemy.second);
@@ -846,15 +889,18 @@ std::pair<bool, int> enemy_turn_win(const bf_position& bfp) {
 }
 
 std::pair<bool, int> draw_win(const bf_position& bfp) {
+  CW_BUMP(draw_win);
   auto t = is_terminated_win(bfp);
   if(t.first != -1) return t;
 
   bool all_true = true;
   int max_f = -1;
 
+  // open_e() はこのループの中で不変 (bfp は const 参照) なので括り出す。
+  const int open_card = bfp.open_e();
   for(int i = 0; i < 8; i++) {
     if(!all_true) break;
-    if(bfp.deck(i)) {
+    if(bfp.deck(i, open_card)) {
       bf_position next_bfp = draw(bfp, i + 1);
       next_bfp.barrier_s = false;
       next_bfp.is_my_turn = !next_bfp.is_my_turn;
@@ -907,6 +953,7 @@ bf_position draw(const bf_position& bfp, int draw_card) {
 }
 
 std::pair<bool, int> sol_win(const bf_position& bfp, int card) {
+  CW_BUMP(sol_win);
   if(!bfp.is_sol_choice) exit_with_print(bfp, "sol_win called when not in sol_choice state");
   if(bfp.open_e() == card && !bfp.barrier_e) return {true, 1};
   struct bf_position next_bfp = bfp;
@@ -918,12 +965,14 @@ std::pair<bool, int> sol_win(const bf_position& bfp, int card) {
 }
 
 std::pair<bool, int> wiz_win(const bf_position& bfp, bool to0p) {
+  CW_BUMP(wiz_win);
   if(!bfp.is_wiz_choice) exit_with_print(bfp, "wiz_win called when not in wiz_choice state");
   if(!to0p && bfp.open_e() == 8 && !bfp.barrier_e) return {true, 1};
   if(to0p && bfp.hand_s[0] == 7) return {false, 0};
   struct bf_position next_bfp = bfp;
   next_bfp.is_wiz_choice = false;
-  std::vector<bf_position> preds = ef_wizard(next_bfp, to0p);
+  ef_wizard_preds preds;
+  ef_wizard(next_bfp, to0p, preds);
   if(preds.empty()) return {false, 0};
 
   int local_max_f = -1;
@@ -939,32 +988,36 @@ std::pair<bool, int> wiz_win(const bf_position& bfp, bool to0p) {
   return {local_all_true, local_all_true ? local_max_f + 1 : 0};
 }
 
-std::vector<bf_position> ef_wizard(const bf_position& bfp, bool to_0p) {
-  std::vector<bf_position> bfps;
+void ef_wizard(const bf_position& bfp, bool to_0p, ef_wizard_preds& bfps) {
+  CW_BUMP(ef_wizard);
   if(bfp.is_my_turn == false) { // use_abswinの最初でturnを切り替えるためturn==falseは0playerのターン
     if(to_0p) {
       if(bfp.hand_s[0] == 8) {
         // return false;
-        return bfps;
+        return;
       }
+      // open_e() はこのループの中で不変 (bfp は const 参照) なので括り出す。
+      const int open_card = bfp.open_e();
       for(int i = 0; i < 8; i++) {
-        if(bfp.deck(i)) {
+        if(bfp.deck(i, open_card)) {
           bf_position next_bfp = bfp;
           next_bfp.is_wiz_choice = false;
           next_bfp.is_my_turn = !bfp.is_my_turn;
           next_bfp.trash[bfp.hand_s[0] - 1] += 1; //手札捨てる
           next_bfp.hand_s[0] = i + 1; //手札引く
           next_bfp.reset_flag(true); //自分のフラグリセット
-          bfps.push_back(next_bfp);
+          CW_BUMP(ef_wizard_elem);
+          bfps.push(next_bfp);
         }
       }
-      return bfps;
+      return;
     } else {
       if(bfp.barrier_e) {
         bf_position next_bfp = bfp;
         next_bfp.is_wiz_choice = false;
-        bfps.push_back(next_bfp);
-        return bfps;
+        CW_BUMP(ef_wizard_elem);
+        bfps.push(next_bfp);
+        return;
       }
       // validate_hand_e_candidate(bfp, "wiz");
       for(int i = 0; i < 8; i++) {
@@ -974,34 +1027,39 @@ std::vector<bf_position> ef_wizard(const bf_position& bfp, bool to_0p) {
           next_bfp.trash[i] += 1;
           next_bfp.is_my_turn = !bfp.is_my_turn;
           next_bfp.reset_flag(false); //相手のフラグリセット
-          bfps.push_back(next_bfp);
+          CW_BUMP(ef_wizard_elem);
+          bfps.push(next_bfp);
         }
       }
-      return bfps;
+      return;
     }
   } else { // is_my_turn == true
     if(to_0p) {
       if(bfp.barrier_s) {
         bf_position next_bfp = bfp;
         next_bfp.is_wiz_choice = false;
-        bfps.push_back(next_bfp);
-        return bfps;
+        CW_BUMP(ef_wizard_elem);
+        bfps.push(next_bfp);
+        return;
       }
+      // open_e() はこのループの中で不変 (bfp は const 参照) なので括り出す。
+      const int open_card = bfp.open_e();
       for(int i = 0; i < 8; i++) {
-        if(bfp.deck(i)) {
+        if(bfp.deck(i, open_card)) {
           bf_position next_bfp = bfp;
           next_bfp.is_wiz_choice = false;
           next_bfp.is_my_turn = !bfp.is_my_turn;
           next_bfp.trash[bfp.hand_s[0] - 1] += 1; //手札捨てる
           next_bfp.hand_s[0] = i + 1; //手札引く
           next_bfp.reset_flag(true); //自分のフラグリセット
-          bfps.push_back(next_bfp);
+          CW_BUMP(ef_wizard_elem);
+          bfps.push(next_bfp);
         }
       }
-      return bfps;
+      return;
     } else {
       if(bfp.open_e() == 8) {
-        return bfps;
+        return;
       }
       // validate_hand_e_candidate(bfp, "wiz");
       for(int i = 0; i < 8; i++) {
@@ -1011,10 +1069,11 @@ std::vector<bf_position> ef_wizard(const bf_position& bfp, bool to_0p) {
           next_bfp.is_my_turn = !bfp.is_my_turn;
           next_bfp.trash[i] += 1;
           next_bfp.reset_flag(false); //相手のフラグリセット
-          bfps.push_back(next_bfp);
+          CW_BUMP(ef_wizard_elem);
+          bfps.push(next_bfp);
         }
       }
-      return bfps;
+      return;
     }
   }
 }
@@ -1184,11 +1243,14 @@ bf_position swap_player(const bf_position& bfp, const int hand) {
 //<使うカード, 敗北するまでのターン数>を返す。敗北しない場合は<0, 0>
 //ルール上すでに敗北の場合9, 魔術師の使用による敗北で,対象自分のみなら15,対象相手のみなら25
 std::vector<std::pair<int, int>> is_lose(const bf_position& bfp) {
+  CW_BUMP(is_lose);
 
   if(bfp.have_s(7) && bfp.hand_s[0] + bfp.hand_s[1] >= 12) {
     return {{9, 0}};
   }
-  if(bfp.count_deck() < 2 && bfp.hand_s[1] == 0 && !bfp.is_wiz_choice && !bfp.is_sol_choice) {
+  // count_deck() は8要素ループなので、スカラの比較3つを先に評価する。
+  // どれも副作用が無いので && の順序を入れ替えても意味は変わらない。
+  if(bfp.hand_s[1] == 0 && !bfp.is_wiz_choice && !bfp.is_sol_choice && bfp.count_deck() < 2) {
     int min = bfp.hand_e_min();
     if(min > bfp.hand_s[0]) return {{9, 0}};
     else return {};
@@ -1215,6 +1277,7 @@ std::vector<std::pair<int, int>> is_lose(const bf_position& bfp) {
 }
 
 std::pair<bool, int> use_lose(const bf_position& bfp, int card) {
+  CW_BUMP(use_lose);
   if(card == 3 && !bfp.barrier_e) {
     if(bfp.hand_e_min() > bfp.other_hand_s(3)) return {true, 1};
     if(bfp.hand_e_min() < bfp.other_hand_s(3)) return {false, 0};
@@ -1335,9 +1398,11 @@ std::pair<bool, int> use_lose(const bf_position& bfp, int card) {
 }
 
 std::pair<bool, int> wiz_lose(const bf_position& bfp, bool to0p) {
+  CW_BUMP(wiz_lose);
   if(!to0p && bfp.hand_e(7) && !bfp.barrier_e) return {false, 0};
   if(to0p && bfp.hand_s[0] == 7) return {true, 0};
-  std::vector<bf_position> preds = ef_wizard(bfp, to0p);
+  ef_wizard_preds preds;
+  ef_wizard(bfp, to0p, preds);
   if(preds.empty()) return {false, 0};
   int local_max_f = -1;
   for(const auto& p : preds) {

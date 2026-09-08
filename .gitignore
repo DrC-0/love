@@ -12,6 +12,7 @@ comp
 end
 test
 cfrorg
+cfrorgcnt
 watch
 test.cpp
 credentials.json

@@ -56,6 +56,12 @@ test: test.cpp action_code.hpp action_code.cpp bf_position.hpp endgame.hpp
 end: endgame.cpp bs_set.hpp endgame.hpp
 	g++ -std=c++20 $(COMMON_WARN) -O2 endgame.cpp -o $@
 
+# --- 計測用ビルド ---
+# 判定の作業量を数える決定的カウンタ付き。カウンタは標準エラーに出るので
+# 本体の標準出力は cfrorg と完全に同一になる。詳細は count_work.hpp を参照。
+cfrorgcnt: cfr_org.cpp org_tree.hpp visit_winlose.hpp bf_position.hpp count_work.hpp $(COMMON_SRCS) $(COMMON_HDRS)
+	g++ -std=c++20 $(COMMON_WARN) -O2 $(COMMON_DEFS) -DCOUNT_WORK -DCFR $(COMMON_SRCS) cfr_org.cpp -o $@
+
 # --- 静的解析 ---
 # cppcheck 2.7 で確認。抑制は .cppcheck-suppressions に記載する。
 CPPCHECK_FLAGS = --enable=warning,style,performance,portability --std=c++20 --language=c++ \
