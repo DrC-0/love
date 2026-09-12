@@ -11,7 +11,7 @@
 #include <iostream>
 
 #include "card_table.hpp"
-// #include "bf_position.hpp"
+// #include "belief_state.hpp"
 #include "bs_set.hpp"
 
 enum Action {

@@ -22,7 +22,7 @@ unsigned long int rand_points = 0;
 unsigned long int end_points = 0;
 
 #include "rnd_make_infset.hpp"
-#include "bf_position.hpp"
+#include "belief_state_history.hpp"
 
 void watch_cfr(int open[3]) {
   node n_rnd_ds(open);
@@ -40,11 +40,11 @@ void watch_cfr(int open[3]) {
   cout << "End Rnd_DS." << endl;
 
   for(map<string, infset>::iterator it = table_infset.begin(); it != table_infset.end(); ++it) {
-    bf_position bfp(open, it->first);
-    if(bfp.hand_s[1] == 0) {
+    belief_state bs(open, it->first);
+    if(bs.hand_s[1] == 0) {
       cout << "0";
       if(!it->second.wizard)
-        bfp.print();
+        bs.print();
     }
   }
 }

@@ -34,7 +34,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **org**: 元のルール。兵士の宣言がプレイヤーの意思決定。`org_action*.hpp` / `oph` / `org_tree.hpp` + `visit_winlose.hpp` / `cfr_org.cpp` / `br.cpp`。
 - **rnd**: 兵士の宣言を一様ランダムに抽象化した版。`rnd_action*.hpp` / `rph` / `rnd_make_infset.hpp` / `cfr.cpp` / `br_rnd.cpp`。
 
-`bf_position` など共通コードは `bool rnd` 引数で切り替える（`bf_position(open, history, rnd)` の既定は `true` = rnd）。
+`belief_state` など共通コードは `bool rnd` 引数で切り替える（`belief_state(open, history, rnd)` の既定は `true` = rnd）。
 
 org 側だけ、ゲーム木の展開と必勝・必敗判定が分離してある。`org_tree.hpp` が展開器
 （`loveletter.hpp` しか include せず、判定も統計も持たない `template <class V>` の DFS）、
@@ -47,10 +47,28 @@ rnd 側は `rnd_make_infset.hpp` が情報集合表を作り、`infset_iswin.cpp
 
 - 履歴は「1行動 = `unsigned char` 1文字」の文字列。gperf 完全ハッシュ (`rph` / `oph`) で 1〜2文字の文字列に戻してから解釈する（`log_util.hpp` の `char_to_action` / `char_to_twonum` / `char_to_wizard`）。
 - `char_to_action` の上位桁: 1,2 = 初期手札、3 = ドロー、4 = カード使用。
-- 兵士と魔術師の選択は**行動として追記されるのではなく、直前の1文字を payload 付きに書き換える**（`loveletter.cpp` の `do_action` case 6/7/8 が `erase()` してから `push`）。履歴末尾が payload なしの状態＝選択待ちノードで、`bf_position` では `is_sol_choice` / `is_wiz_choice` に対応する。履歴を伸ばす側のコードも同様に末尾を置換する必要がある（`infset_iswin.cpp` の `substr(0, length-1)`）。
+- 兵士と魔術師の選択は**行動として追記されるのではなく、直前の1文字を payload 付きに書き換える**（`loveletter.cpp` の `do_action` case 6/7/8 が `erase()` してから `push`）。履歴末尾が payload なしの状態＝選択待ちノードで、`belief_state` では `is_sol_choice` / `is_wiz_choice` に対応する。履歴を伸ばす側のコードも同様に末尾を置換する必要がある（`infset_iswin.cpp` の `substr(0, length-1)`）。
 - rnd の履歴には兵士宣言の payload が入らない（`do_action` case 8 は `org_his*` しか更新しない）。
 
-## bf_position の規約
+## belief_state (Belief State) の規約
+
+Belief State は依存が一方向の4ファイルに分かれている。umbrella は無いので、
+使う側は必要な層を直接 include する。
+
+| ファイル | 中身 | 依存 |
+|---|---|---|
+| `belief_state.hpp` | 型・アクセサ・フラグ更新・遷移・表示 | — |
+| `belief_state_history.hpp` | 履歴コンストラクタと符号化・復号 | `belief_state.hpp` |
+| `belief_state_win.hpp` | 必勝判定7本 + `able_actions` `action_count` | `belief_state.hpp` |
+| `belief_state_lose.hpp` | 必敗判定3本 | `belief_state_win.hpp` |
+
+必勝判定の7本 (`is_win` `is_terminated_win` `use_win` `enemy_turn_win` `draw_win`
+`sol_win` `wiz_win`) は相互再帰の強連結成分なので分割できない。必敗側は
+`draw_win` を呼ぶが、必勝側は必敗側を一度も呼ばない。
+
+2引数のコンストラクタ `belief_state(open, history)` を使うなら
+`belief_state_history.hpp` を include すること。既定引数 `rnd = true` は
+**宣言側ではなく定義側**に書かれているので、`belief_state.hpp` だけでは見えない。
 
 - `_s` = 視点プレイヤー自身、`_e` = 相手。`hand_s[2]` が自分の手札で、相手の手札は `trash` と推論フラグ (`open_flag_e`, `sol_flag_e`, `lt5_flag_e`, `not7_flag_e`) から `hand_e(i)` で候補集合として復元する。
 - 推論フラグの意味: `lt5_*` = 大臣(7)を出したので残りの手札は5未満、`not7_*` = 魔術師(5)を出したので大臣(7)は持っていない、`sol_*` = 兵士で宣言されて外れたカード。

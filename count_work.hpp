@@ -29,7 +29,7 @@ struct count_work_counters {
   unsigned long long ef_wizard = 0;
   unsigned long long ef_wizard_elem = 0; // ef_wizard が返した要素の総数
   unsigned long long reset_flag_by_use = 0;
-  unsigned long long bfp_from_history = 0; // 履歴文字列からの再構築
+  unsigned long long belief_state_from_history = 0; // 履歴文字列からの再構築
 
   // 8要素ループを回す派生量。回数がそのままループの実行回数になる。
   unsigned long long open_e = 0;
@@ -48,13 +48,13 @@ struct count_work_counters {
                  "COUNT_WORK is_terminated_win=%llu enemy_turn_win=%llu draw_win=%llu "
                  "sol_win=%llu use_win=%llu use_lose=%llu\n"
                  "COUNT_WORK wiz_win=%llu wiz_lose=%llu is_lose=%llu ef_wizard=%llu "
-                 "ef_wizard_elem=%llu reset_flag_by_use=%llu bfp_from_history=%llu\n"
+                 "ef_wizard_elem=%llu reset_flag_by_use=%llu belief_state_from_history=%llu\n"
                  "COUNT_WORK open_e=%llu count_deck=%llu deck=%llu hand_e_max=%llu "
                  "hand_e_min=%llu deck_or_hand_e_min=%llu\n"
                  "COUNT_WORK hand_e=%llu deck_or_hand_e=%llu\n",
                  is_terminated_win, enemy_turn_win, draw_win, sol_win, use_win, use_lose,
                  wiz_win, wiz_lose, is_lose, ef_wizard, ef_wizard_elem, reset_flag_by_use,
-                 bfp_from_history,
+                 belief_state_from_history,
                  open_e, count_deck, deck, hand_e_max, hand_e_min, deck_or_hand_e_min,
                  hand_e, deck_or_hand_e);
   }

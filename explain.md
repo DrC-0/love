@@ -27,7 +27,10 @@ graph TD
     all_elements_rnd[all_elements_rnd.hpp]
     cfr_hpp[cfr.hpp]
     cfr_exp_reward[cfr_exp_reward.hpp]
-    bf_position[bf_position.hpp]
+    belief_state[belief_state.hpp]
+    belief_state_history[belief_state_history.hpp]
+    belief_state_win[belief_state_win.hpp]
+    belief_state_lose[belief_state_lose.hpp]
   end
   subgraph L2["ゲームの表現"]
     loveletter_hpp[loveletter.hpp]
@@ -74,13 +77,13 @@ graph TD
 |---|---|---|
 | `cfr` | `cfr.cpp` | `cfr_exp_reward.hpp` `rnd_make_infset.hpp` `cfr.hpp` |
 | `cfr0` | `cfr_zero.cpp` | `rnd_make_infset.hpp` |
-| `cfrorg` | `cfr_org.cpp` | `org_tree.hpp` `visit_winlose.hpp` → `bf_position.hpp` |
+| `cfrorg` | `cfr_org.cpp` | `org_tree.hpp` `visit_winlose.hpp` → `belief_state_history.hpp` `belief_state_lose.hpp` |
 | `brorg` | `br.cpp` | `all_elements.hpp` `rnd_make_infset.hpp` `infset_dfs.hpp` |
 | `brrnd` | `br_rnd.cpp` | `all_elements_rnd.hpp` `rnd_make_infset.hpp` `infset_dfs_rnd.hpp` |
-| `win` | `infset_iswin.cpp` | `save_load_abshistory.hpp` `rnd_make_infset.hpp` `bf_position.hpp` |
-| `comp` | `compare_abscfr.cpp` | `all_elements_rnd.hpp` `rnd_make_infset.hpp` `infset_dfs.hpp` `save_load_abshistory.hpp` `bf_position.hpp` |
+| `win` | `infset_iswin.cpp` | `save_load_abshistory.hpp` `rnd_make_infset.hpp` `belief_state_history.hpp` `belief_state_lose.hpp` |
+| `comp` | `compare_abscfr.cpp` | `all_elements_rnd.hpp` `rnd_make_infset.hpp` `infset_dfs.hpp` `save_load_abshistory.hpp` `belief_state_history.hpp` `belief_state_win.hpp` |
 | `end` | `endgame.cpp` | `endgame.hpp` → `bs_set.hpp` (`COMMON_SRCS` を使わない単独ビルド) |
-| `test` | `test.cpp` | `bf_position.hpp` + `action_code.cpp` (gitignore 済みのスクラッチ) |
+| `test` | `test.cpp` | (gitignore 済みのスクラッチ。`bf_position.hpp` を include したままなので現在ビルドできない) |
 
 `watch` は `watch_cfr.cpp` が `cfr_switch` を定義していないためリンクできない (既知)。
 `brrnd` は `br_rnd.cpp` が読む `ave_prob_action<部分ゲーム><t>.bin` を書き出すコードが

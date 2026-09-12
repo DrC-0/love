@@ -40,11 +40,12 @@ std::string max_history = "";
 int hist_max = 0;
 
 #include "rnd_make_infset.hpp"
-#include "bf_position.hpp"
+#include "belief_state_history.hpp"
+#include "belief_state_lose.hpp"
 
 void cnt_abs(int open[3], string history) {
-  bf_position bfp(open, history);
-  auto res_win = is_win(bfp);
+  belief_state bs(open, history);
+  auto res_win = is_win(bs);
 
   if(res_win.first > 0) {
     win_move[res_win.second]++;
@@ -56,8 +57,8 @@ void cnt_abs(int open[3], string history) {
     }
   } else win_move[0]++;
 
-  auto lose_actions = is_lose(bfp);
-  int act_cnt = action_count(bfp);
+  auto lose_actions = is_lose(bs);
+  int act_cnt = action_count(bs);
   int able_act = act_cnt - lose_actions.size();
   lose_move[0] += able_act;
   if(able_act == 1 && act_cnt > 1) only_history.insert(history);
@@ -71,11 +72,11 @@ void cnt_abs(int open[3], string history) {
       string action = rph.get_action((unsigned char)history[0]);
 
       int firstp = char_to_action(action[0]) / 10;
-      auto actions = able_actions(bfp, lose_action.first, firstp == 2);
+      auto actions = able_actions(bs, lose_action.first, firstp == 2);
 
       for(int act : actions) {
         string new_hist;
-        if(bfp.is_wiz_choice) {
+        if(bs.is_wiz_choice) {
           new_hist = history.substr(0, history.length() - 1) + string(1, action2char(act, true));
         } else {
           new_hist = history + string(1, action2char(act, true));
@@ -104,8 +105,8 @@ void infset_iswin(int open[3]) {
   cout << "End Rnd_DS." << endl;
 
   for(map<string, infset>::iterator it = table_infset.begin(); it != table_infset.end(); ++it) {
-    bf_position bfp(open, it->first);
-    action_cnt += action_count(bfp);
+    belief_state bs(open, it->first);
+    action_cnt += action_count(bs);
     cnt_abs(open, it->first);
   }
 

@@ -1,4 +1,4 @@
-# 共通で使用するソースファイル（bf_position.cpp をここに追加してリンクエラーを回避）
+# 共通で使用するソースファイル
 COMMON_SRCS = loveletter.cpp rnd_action_sequense.cpp org_action_sequense.cpp action_code.cpp
 
 # 共通で使用するヘッダファイル（依存関係チェック用）
@@ -25,13 +25,17 @@ cfr: cfr.cpp $(COMMON_SRCS) $(COMMON_HDRS)
 cfr0: cfr_zero.cpp $(COMMON_SRCS) $(COMMON_HDRS)
 	g++ -std=c++20 $(COMMON_WARN) -O2 $(COMMON_DEFS) -DCFR $(COMMON_SRCS) cfr_zero.cpp -o $@
 
-cfrorg: cfr_org.cpp org_tree.hpp visit_winlose.hpp bf_position.hpp $(COMMON_SRCS) $(COMMON_HDRS)
+cfrorg: cfr_org.cpp org_tree.hpp visit_winlose.hpp \
+        belief_state.hpp belief_state_history.hpp belief_state_win.hpp belief_state_lose.hpp \
+        $(COMMON_SRCS) $(COMMON_HDRS)
 	g++ -std=c++20 $(COMMON_WARN) -O2 $(COMMON_DEFS) -DCFR $(COMMON_SRCS) cfr_org.cpp -o $@
 
-cfrorgd: cfr_org.cpp org_tree.hpp visit_winlose.hpp bf_position.hpp $(COMMON_SRCS) $(COMMON_HDRS)
+cfrorgd: cfr_org.cpp org_tree.hpp visit_winlose.hpp \
+        belief_state.hpp belief_state_history.hpp belief_state_win.hpp belief_state_lose.hpp \
+        $(COMMON_SRCS) $(COMMON_HDRS)
 	g++ -std=c++20 $(COMMON_WARN) -O2 $(COMMON_DEBUG_DEFS) -DCFR $(COMMON_SRCS) cfr_org.cpp -o cfrorg
 
-watch: cfr_org.cpp bf_position.hpp $(COMMON_SRCS) $(COMMON_HDRS)
+watch: cfr_org.cpp belief_state_history.hpp $(COMMON_SRCS) $(COMMON_HDRS)
 	g++ -std=c++20 $(COMMON_WARN) -O2 $(COMMON_DEFS) -DCFR $(COMMON_SRCS) watch_cfr.cpp -o $@
 
 # --- Best Response系ターゲット (-DBEST_RESPONSE を使用) ---
@@ -42,15 +46,21 @@ brrnd: br_rnd.cpp $(COMMON_SRCS) $(COMMON_HDRS)
 brorg: br.cpp all_elements.hpp infset_dfs.hpp $(COMMON_SRCS) $(COMMON_HDRS)
 	g++ -std=c++20 $(COMMON_WARN) -O2 $(COMMON_DEFS) -DBEST_RESPONSE $(COMMON_SRCS) br.cpp -o $@
 
-win: infset_iswin.cpp save_load_abshistory.hpp bf_position.hpp $(COMMON_SRCS) $(COMMON_HDRS)
+win: infset_iswin.cpp save_load_abshistory.hpp \
+     belief_state.hpp belief_state_history.hpp belief_state_win.hpp belief_state_lose.hpp \
+     $(COMMON_SRCS) $(COMMON_HDRS)
 	g++ -std=c++20 $(COMMON_WARN) -O2 $(COMMON_DEFS)  $(COMMON_SRCS) infset_iswin.cpp -o $@
 
 
-comp: compare_abscfr.cpp save_load_abshistory.hpp bf_position.hpp $(COMMON_SRCS) $(COMMON_HDRS)
+comp: compare_abscfr.cpp save_load_abshistory.hpp \
+      belief_state.hpp belief_state_history.hpp belief_state_win.hpp belief_state_lose.hpp \
+      $(COMMON_SRCS) $(COMMON_HDRS)
 	g++ -std=c++20 $(COMMON_WARN) -O2 $(COMMON_DEFS)  $(COMMON_SRCS) compare_abscfr.cpp -o $@
 
 # --- その他 ---
-test: test.cpp action_code.hpp action_code.cpp bf_position.hpp endgame.hpp
+test: test.cpp action_code.hpp action_code.cpp \
+      belief_state.hpp belief_state_history.hpp belief_state_win.hpp belief_state_lose.hpp \
+      endgame.hpp
 	g++ -std=c++20 $(COMMON_WARN) -O2 test.cpp action_code.cpp -o $@
 
 end: endgame.cpp bs_set.hpp endgame.hpp
@@ -59,7 +69,9 @@ end: endgame.cpp bs_set.hpp endgame.hpp
 # --- 計測用ビルド ---
 # 判定の作業量を数える決定的カウンタ付き。カウンタは標準エラーに出るので
 # 本体の標準出力は cfrorg と完全に同一になる。詳細は count_work.hpp を参照。
-cfrorgcnt: cfr_org.cpp org_tree.hpp visit_winlose.hpp bf_position.hpp count_work.hpp $(COMMON_SRCS) $(COMMON_HDRS)
+cfrorgcnt: cfr_org.cpp org_tree.hpp visit_winlose.hpp \
+           belief_state.hpp belief_state_history.hpp belief_state_win.hpp belief_state_lose.hpp \
+           count_work.hpp $(COMMON_SRCS) $(COMMON_HDRS)
 	g++ -std=c++20 $(COMMON_WARN) -O2 $(COMMON_DEFS) -DCOUNT_WORK -DCFR $(COMMON_SRCS) cfr_org.cpp -o $@
 
 # --- 静的解析 ---

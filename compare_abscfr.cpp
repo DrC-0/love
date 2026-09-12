@@ -54,7 +54,8 @@ unsigned long int soldior_points = 0;
 #include "rnd_make_infset.hpp"
 #include "infset_dfs.hpp"
 #include "save_load_abshistory.hpp"
-#include "bf_position.hpp"
+#include "belief_state_history.hpp"
+#include "belief_state_win.hpp"
 
 void output_hash_history(string s, bool rnd) {
   long unsigned int head = 0;
@@ -153,9 +154,9 @@ void compare_abs_cfr(int open[3]) {
   }
   output_actions_history(his->first, true);
   output_hash_history(his->first, true);
-  auto bfp = bf_position(open, his->first);
-  bfp.print();
-  cout << "win" << is_win(bfp).first << endl;
+  auto bs = belief_state(open, his->first);
+  bs.print();
+  cout << "win" << is_win(bs).first << endl;
   node n(open);
   string key = his->first;
   for(int i = 1; i < 9; i++) {
