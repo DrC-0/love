@@ -43,9 +43,10 @@ int hist_max = 0;
 #include "belief_state_history.hpp"
 #include "belief_state_lose.hpp"
 
-void cnt_abs(int open[3], string history) {
+void cnt_abs(int open[3], string history,
+             belief_state_win_checker& wc, belief_state_lose_checker& lc) {
   belief_state bs(open, history);
-  auto res_win = is_win(bs);
+  auto res_win = wc.is_win(bs);
 
   if(res_win.first > 0) {
     win_move[res_win.second]++;
@@ -57,7 +58,7 @@ void cnt_abs(int open[3], string history) {
     }
   } else win_move[0]++;
 
-  auto lose_actions = is_lose(bs);
+  auto lose_actions = lc.is_lose(bs);
   int act_cnt = action_count(bs);
   int able_act = act_cnt - lose_actions.size();
   lose_move[0] += able_act;
@@ -104,10 +105,12 @@ void infset_iswin(int open[3]) {
   }
   cout << "End Rnd_DS." << endl;
 
+  belief_state_win_checker wc;
+  belief_state_lose_checker lc{wc};
   for(map<string, infset>::iterator it = table_infset.begin(); it != table_infset.end(); ++it) {
     belief_state bs(open, it->first);
     action_cnt += action_count(bs);
-    cnt_abs(open, it->first);
+    cnt_abs(open, it->first, wc, lc);
   }
 
   assert(std::accumulate(win_move, win_move + 11, 0) == table_infset.size());

@@ -1,16 +1,63 @@
 #ifndef BELIEF_STATE_WIN_HPP
 #define BELIEF_STATE_WIN_HPP
 #include "belief_state.hpp"
+#include <unordered_map>
 
-std::pair<int, int> is_win(const belief_state& bs);
 std::pair<int, int> is_terminated_win(const belief_state& bs);
-std::pair<bool, int> use_win(const belief_state& bs, int card);
-std::pair<bool, int> draw_win(const belief_state& bs);
-std::pair<bool, int> enemy_turn_win(const belief_state& bs);
-std::pair<bool, int> sol_win(const belief_state& bs, int card);
-std::pair<bool, int> wiz_win(const belief_state& bs, bool to0p);
 std::vector<int> able_actions(const belief_state& bs, int card, bool is_second_player);
 int action_count(const belief_state& bs);
+
+// belief_state と引数以外の可変状態を読まない純関数なので、5本はメモ化する。
+// メモ表は判定ごとに分ける (関数が違えば同じ (bs, extra) でも答えが違うため)。
+struct belief_state_win_checker {
+  // belief_state の16フィールドと追加の鍵 (card 0..8 / to0p) を 59bit に詰める。
+  // 値域: open_flag / sol_flag / hand_s は 0..8、trash[i] は max_num[i] 以下。
+  static unsigned long long key(const belief_state& bs, int extra);
+
+  std::pair<int, int> is_win(const belief_state& bs); // メモ化しない (入口、再帰しない)
+  std::pair<bool, int> use_win(const belief_state& bs, int card);
+  std::pair<bool, int> enemy_turn_win(const belief_state& bs);
+  std::pair<bool, int> draw_win(const belief_state& bs);
+  std::pair<bool, int> sol_win(const belief_state& bs, int card);
+  std::pair<bool, int> wiz_win(const belief_state& bs, bool to0p);
+
+private:
+  std::pair<bool, int> use_win_impl(const belief_state& bs, int card);
+  std::pair<bool, int> enemy_turn_win_impl(const belief_state& bs);
+  std::pair<bool, int> draw_win_impl(const belief_state& bs);
+  std::pair<bool, int> sol_win_impl(const belief_state& bs, int card);
+  std::pair<bool, int> wiz_win_impl(const belief_state& bs, bool to0p);
+
+  std::unordered_map<unsigned long long, std::pair<bool, int>> m_use_win, m_enemy_turn_win,
+      m_draw_win, m_sol_win, m_wiz_win;
+};
+
+unsigned long long belief_state_win_checker::key(const belief_state& bs, int extra) {
+  unsigned long long k = 0;
+  int b = 0;
+  auto put = [&](unsigned long long v, int w) { k |= v << b; b += w; };
+  put(bs.is_my_turn, 1);
+  put(bs.is_sol_choice, 1);
+  put(bs.is_wiz_choice, 1);
+  put(bs.not7_flag_s, 1);
+  put(bs.not7_flag_e, 1);
+  put(bs.barrier_s, 1);
+  put(bs.barrier_e, 1);
+  put(bs.lt5_flag_s, 1);
+  put(bs.lt5_flag_e, 1);
+  put(bs.open_flag_s, 4);
+  put(bs.open_flag_e, 4);
+  put(bs.sol_flag_s[0], 4);
+  put(bs.sol_flag_s[1], 4);
+  put(bs.sol_flag_e[0], 4);
+  put(bs.sol_flag_e[1], 4);
+  put(bs.hand_s[0], 4);
+  put(bs.hand_s[1], 4);
+  static const int tw[8] = {3, 2, 2, 2, 2, 1, 1, 1}; // max_num = {5,2,2,2,2,1,1,1}
+  for(int i = 0; i < 8; i++) put(bs.trash[i], tw[i]);
+  put(extra, 4);
+  return k;
+}
 
 std::pair<int, int> is_terminated_win(const belief_state& bs) {
   CW_BUMP(is_terminated_win);
@@ -39,7 +86,7 @@ std::pair<int, int> is_terminated_win(const belief_state& bs) {
   return {-1, 0};
 }
 
-std::pair<int, int> is_win(const belief_state& bs) {
+std::pair<int, int> belief_state_win_checker::is_win(const belief_state& bs) {
   auto t = is_terminated_win(bs);
   if(t.first != -1) return t;
 
@@ -49,9 +96,9 @@ std::pair<int, int> is_win(const belief_state& bs) {
     int min_t = 1e9;
     // カード1は宣言対象外だが、候補として残っていても異常ではない。
     validate_hand_e_candidate(bs, "sol");
-    for(int i = 1; i < 8; i++) {
-      if(bs.hand_e(i)) {
-        auto res_sol = sol_win(bs, i + 1);
+    for(int card = 2; card <= 8; card++) {
+      if(bs.hand_e(card)) {
+        auto res_sol = sol_win(bs, card);
         if(res_sol.first) {
           has_true = true;
           min_t = std::min(min_t, res_sol.second);
@@ -106,7 +153,18 @@ std::pair<int, int> is_win(const belief_state& bs) {
     return {0, 0};
 }
 
-std::pair<bool, int> use_win(const belief_state& bs, int card) {
+std::pair<bool, int> belief_state_win_checker::use_win(const belief_state& bs, int card) {
+  const unsigned long long k = key(bs, card);
+  if(!commentable_bs) {
+    auto it = m_use_win.find(k);
+    if(it != m_use_win.end()) return it->second;
+  }
+  auto r = use_win_impl(bs, card);
+  if(!commentable_bs) m_use_win.emplace(k, r);
+  return r;
+}
+
+std::pair<bool, int> belief_state_win_checker::use_win_impl(const belief_state& bs, int card) {
   CW_BUMP(use_win);
   auto t = is_terminated_win(bs);
   if(t.first != -1) return t;
@@ -144,9 +202,9 @@ std::pair<bool, int> use_win(const belief_state& bs, int card) {
     int min_t = 1e9;
     // カード1は宣言対象外だが、候補として残っていても異常ではない。
     validate_hand_e_candidate(bs, "sol");
-    for(int i = 1; i < 8; i++) {
-      if(bs.hand_e(i)) {
-        auto res = sol_win(next_bs, i + 1);
+    for(int card2 = 2; card2 <= 8; card2++) {
+      if(bs.hand_e(card2)) {
+        auto res = sol_win(next_bs, card2);
         if(res.first) {
           has_true = true;
           min_t = std::min(min_t, res.second);
@@ -158,11 +216,11 @@ std::pair<bool, int> use_win(const belief_state& bs, int card) {
     bool all_true = true;
     int max_f = -1;
 
-    for(int i = 0; i < 8; i++) {
+    for(int card2 = 1; card2 <= 8; card2++) {
       if(all_true)
-        if(bs.hand_e(i)) {
+        if(bs.hand_e(card2)) {
           struct belief_state next_bs2 = next_bs;
-          next_bs2.open_flag_e = i + 1;
+          next_bs2.open_flag_e = card2;
           auto res = enemy_turn_win(next_bs2);
           if(res.first) {
             max_f = std::max(max_f, res.second);
@@ -175,7 +233,7 @@ std::pair<bool, int> use_win(const belief_state& bs, int card) {
     return {all_true, all_true ? max_f + 1 : 0};
   } else if(card == 3) {
     int other = bs.other_hand_s(3);
-    if(bs.hand_e(other - 1)) {
+    if(bs.hand_e(other)) {
       struct belief_state next_bs2 = next_bs;
       next_bs2.open_flag_e = other;
       // next_bs2.open_flag_s = other;//自分のフラグは不要
@@ -206,10 +264,10 @@ std::pair<bool, int> use_win(const belief_state& bs, int card) {
     bool all_true = true;
     int max_f = -1;
 
-    for(int i = 0; i < 8; i++) {
-      if(bs.hand_e(i)) {
+    for(int card2 = 1; card2 <= 8; card2++) {
+      if(bs.hand_e(card2)) {
         struct belief_state next_bs2 = next_bs;
-        next_bs2.hand_s[0] = i + 1;
+        next_bs2.hand_s[0] = card2;
         // next_bs2.open_flag_s = i + 1;//自分のフラグは不要
         auto res = enemy_turn_win(next_bs2);
         if(res.first) {
@@ -228,7 +286,18 @@ std::pair<bool, int> use_win(const belief_state& bs, int card) {
   } else return {false, 0};
 }
 
-std::pair<bool, int> enemy_turn_win(const belief_state& bs) {
+std::pair<bool, int> belief_state_win_checker::enemy_turn_win(const belief_state& bs) {
+  const unsigned long long k = key(bs, 0);
+  if(!commentable_bs) {
+    auto it = m_enemy_turn_win.find(k);
+    if(it != m_enemy_turn_win.end()) return it->second;
+  }
+  auto r = enemy_turn_win_impl(bs);
+  if(!commentable_bs) m_enemy_turn_win.emplace(k, r);
+  return r;
+}
+
+std::pair<bool, int> belief_state_win_checker::enemy_turn_win_impl(const belief_state& bs) {
   CW_BUMP(enemy_turn_win);
   auto t = is_terminated_win(bs);
   if(t.first != -1) return t;
@@ -236,24 +305,24 @@ std::pair<bool, int> enemy_turn_win(const belief_state& bs) {
   bool all_true = true;
   int max_f = -1;
 
-  for(int i = 0; i < 7; i++) {
+  for(int card = 1; card <= 7; card++) {
     if(!all_true) break;
-    if(bs.deck_or_hand_e(i) > 0) {
-      if(commentable_bs) std::cout << bs.count_deck() - 1 << "enemy :" << i + 1 << std::endl;
+    if(bs.deck_or_hand_e(card) > 0) {
+      if(commentable_bs) std::cout << bs.count_deck() - 1 << "enemy :" << card << std::endl;
       // 1. カード効果による即時敗北（深さ0の敗北として扱う）
-      if(i + 1 == 1 && !bs.barrier_s && bs.hand_s[0] > 1) {
+      if(card == 1 && !bs.barrier_s && bs.hand_s[0] > 1) {
         all_true = false;
         continue;
       }
 
-      if(i + 1 == 3 && !bs.barrier_s) {
+      if(card == 3 && !bs.barrier_s) {
         bool immediate_loss = false;
-        for(int j = 0; j < 8; j++) {
-          if(bs.deck_or_hand_e(j)) {
-            if(j + 1 == 3 && bs.deck_or_hand_e(2) >= 2 && bs.hand_s[0] < 3) {
+        for(int card2 = 1; card2 <= 8; card2++) {
+          if(bs.deck_or_hand_e(card2)) {
+            if(card2 == 3 && bs.deck_or_hand_e(3) >= 2 && bs.hand_s[0] < 3) {
               immediate_loss = true;
               break;
-            } else if(j + 1 > bs.hand_s[0]) {
+            } else if(card2 > bs.hand_s[0]) {
               immediate_loss = true;
               break;
             }
@@ -265,32 +334,32 @@ std::pair<bool, int> enemy_turn_win(const belief_state& bs) {
         }
       }
 
-      if(i + 1 == 5 && bs.hand_s[0] == 8 && !bs.barrier_s) {
+      if(card == 5 && bs.hand_s[0] == 8 && !bs.barrier_s) {
         all_true = false;
         continue;
       }
 
       // 2. 状態の更新
       struct belief_state next_bs = bs;
-      next_bs.trash[i] += 1;
+      next_bs.trash[card - 1] += 1;
       next_bs.barrier_e = false;
       next_bs.is_my_turn = !bs.is_my_turn;
-      next_bs = reset_flag_by_use(next_bs, false, i + 1);
+      next_bs = reset_flag_by_use(next_bs, false, card);
 
-      if(i + 1 == 5) next_bs.not7_flag_e = true;
+      if(card == 5) next_bs.not7_flag_e = true;
 
       // 3. 各カードごとの再帰評価
-      if(i + 1 == 3) {
+      if(card == 3) {
         if(!bs.barrier_s) next_bs.open_flag_e = bs.hand_s[0];
         auto res = draw_win(next_bs);
         if(res.first) max_f = std::max(max_f, res.second);
         else all_true = false;
-      } else if(i + 1 == 4) {
+      } else if(card == 4) {
         next_bs.barrier_e = true;
         auto res = draw_win(next_bs);
         if(res.first) max_f = std::max(max_f, res.second);
         else all_true = false;
-      } else if(i + 1 == 5) {
+      } else if(card == 5) {
         if(bs.open_e() == 7) continue;
 
         // 魔術師専用の集約ラムダ
@@ -316,17 +385,17 @@ std::pair<bool, int> enemy_turn_win(const belief_state& bs) {
 
         if(res_self.first && res_enemy.first) max_f = std::max(res_self.second, res_enemy.second);
         else all_true = false;
-      } else if(i + 1 == 6) {
+      } else if(card == 6) {
         if(bs.open_e() == 7) continue;
         if(!bs.barrier_s) {
           bool gene_all_true = true;
           int gene_max_f = -1;
 
-          for(int j = 0; j < 8; j++) {
+          for(int card2 = 1; card2 <= 8; card2++) {
             if(!gene_all_true) break;
-            if(next_bs.hand_e(j)) {
+            if(next_bs.hand_e(card2)) {
               struct belief_state next_bs2 = next_bs;
-              next_bs2.hand_s[0] = j + 1;
+              next_bs2.hand_s[0] = card2;
               next_bs2.reset_flag(true);
               next_bs2.reset_flag(false);
               next_bs2.open_flag_e = bs.hand_s[0];
@@ -343,14 +412,14 @@ std::pair<bool, int> enemy_turn_win(const belief_state& bs) {
           if(res.first) max_f = std::max(max_f, res.second);
           else all_true = false;
         }
-      } else if(i + 1 == 7) {
+      } else if(card == 7) {
         next_bs.lt5_flag_e = true;
 
         // 7 を使った相手は、使用後も 5 未満のカードを手札に残している必要がある。
         // deck_or_hand_e() に 7 自身が存在するだけでは、この枝は成立しない。
         bool has_remaining_hand_candidate = false;
-        for(int j = 0; j < 8; j++) {
-          if(next_bs.hand_e(j)) {
+        for(int card2 = 1; card2 <= 8; card2++) {
+          if(next_bs.hand_e(card2)) {
             has_remaining_hand_candidate = true;
             break;
           }
@@ -372,7 +441,18 @@ std::pair<bool, int> enemy_turn_win(const belief_state& bs) {
   return {all_true, all_true ? max_f + 1 : 0};
 }
 
-std::pair<bool, int> draw_win(const belief_state& bs) {
+std::pair<bool, int> belief_state_win_checker::draw_win(const belief_state& bs) {
+  const unsigned long long k = key(bs, 0);
+  if(!commentable_bs) {
+    auto it = m_draw_win.find(k);
+    if(it != m_draw_win.end()) return it->second;
+  }
+  auto r = draw_win_impl(bs);
+  if(!commentable_bs) m_draw_win.emplace(k, r);
+  return r;
+}
+
+std::pair<bool, int> belief_state_win_checker::draw_win_impl(const belief_state& bs) {
   CW_BUMP(draw_win);
   auto t = is_terminated_win(bs);
   if(t.first != -1) return t;
@@ -382,13 +462,13 @@ std::pair<bool, int> draw_win(const belief_state& bs) {
 
   // open_e() はこのループの中で不変 (bs は const 参照) なので括り出す。
   const int open_card = bs.open_e();
-  for(int i = 0; i < 8; i++) {
+  for(int card = 1; card <= 8; card++) {
     if(!all_true) break;
-    if(bs.deck(i, open_card)) {
-      belief_state next_bs = draw(bs, i + 1);
+    if(bs.deck(card, open_card)) {
+      belief_state next_bs = draw(bs, card);
       next_bs.barrier_s = false;
       next_bs.is_my_turn = !next_bs.is_my_turn;
-      if(commentable_bs) std::cout << next_bs.count_deck() << "draw " << i + 1 << std::endl;
+      if(commentable_bs) std::cout << next_bs.count_deck() << "draw " << card << std::endl;
 
       // --- 自分の手札の選択 (ORノード) ---
       auto res0 = use_win(next_bs, next_bs.hand_s[0]);
@@ -397,7 +477,7 @@ std::pair<bool, int> draw_win(const belief_state& bs) {
       int or_second = 0;
 
       // 手札の2枚が違うカードなら、もう一方も評価する
-      if(next_bs.hand_s[0] != i + 1) {
+      if(next_bs.hand_s[0] != card) {
         auto res1 = use_win(next_bs, next_bs.hand_s[1]);
 
         if(res0.first) {
@@ -429,7 +509,18 @@ std::pair<bool, int> draw_win(const belief_state& bs) {
   return {all_true, all_true ? max_f : 0};
 }
 
-std::pair<bool, int> sol_win(const belief_state& bs, int card) {
+std::pair<bool, int> belief_state_win_checker::sol_win(const belief_state& bs, int card) {
+  const unsigned long long k = key(bs, card);
+  if(!commentable_bs) {
+    auto it = m_sol_win.find(k);
+    if(it != m_sol_win.end()) return it->second;
+  }
+  auto r = sol_win_impl(bs, card);
+  if(!commentable_bs) m_sol_win.emplace(k, r);
+  return r;
+}
+
+std::pair<bool, int> belief_state_win_checker::sol_win_impl(const belief_state& bs, int card) {
   CW_BUMP(sol_win);
   if(!bs.is_sol_choice) exit_with_print(bs, "sol_win called when not in sol_choice state");
   if(bs.open_e() == card && !bs.barrier_e) return {true, 1};
@@ -441,7 +532,18 @@ std::pair<bool, int> sol_win(const belief_state& bs, int card) {
   return {res.first, res.first ? res.second + 1 : 0};
 }
 
-std::pair<bool, int> wiz_win(const belief_state& bs, bool to0p) {
+std::pair<bool, int> belief_state_win_checker::wiz_win(const belief_state& bs, bool to0p) {
+  const unsigned long long k = key(bs, to0p ? 1 : 0);
+  if(!commentable_bs) {
+    auto it = m_wiz_win.find(k);
+    if(it != m_wiz_win.end()) return it->second;
+  }
+  auto r = wiz_win_impl(bs, to0p);
+  if(!commentable_bs) m_wiz_win.emplace(k, r);
+  return r;
+}
+
+std::pair<bool, int> belief_state_win_checker::wiz_win_impl(const belief_state& bs, bool to0p) {
   CW_BUMP(wiz_win);
   if(!bs.is_wiz_choice) exit_with_print(bs, "wiz_win called when not in wiz_choice state");
   if(!to0p && bs.open_e() == 8 && !bs.barrier_e) return {true, 1};
@@ -465,6 +567,9 @@ std::pair<bool, int> wiz_win(const belief_state& bs, bool to0p) {
   return {local_all_true, local_all_true ? local_max_f + 1 : 0};
 }
 
+// 行動コードは 0-origin のカード添字をそのまま桁に埋め込むシリアライズ形式
+// なので、この関数の中だけは添字 (0..7) で通す。Belief State のアクセサは
+// カード (1..8) を取るため、呼び出しでだけ +1 する。
 std::vector<int> able_actions(const belief_state& bs, int card, bool is_second_player) {
   int base = 40 + card - 1;
   std::vector<int> actions;
@@ -473,13 +578,13 @@ std::vector<int> able_actions(const belief_state& bs, int card, bool is_second_p
     // --- 自分を対象とする場合 ---
     if((card == 0 && !is_second_player) || (card == 1 && is_second_player)) {
       for(int j = 0; j < 8; j++)
-        if(bs.deck(j)) actions.push_back(44000 + is_second_player * 100 + (bs.other_hand_s(card) - 1) * 10 + j);
+        if(bs.deck(j + 1)) actions.push_back(44000 + is_second_player * 100 + (bs.other_hand_s(card) - 1) * 10 + j);
     }
     // --- 相手を対象とする場合 ---
     else if((card == 0 && is_second_player) || (card == 1 && !is_second_player)) {
       if(!bs.barrier_e) {
         for(int i = 0; i < 7; i++) {
-          if(bs.hand_e(i)) { // 相手が捨てさせられるカード
+          if(bs.hand_e(i + 1)) { // 相手が捨てさせられるカード
             actions.push_back(44000 + !is_second_player * 100 + i * 10 + 0);
           }
         }
@@ -490,15 +595,15 @@ std::vector<int> able_actions(const belief_state& bs, int card, bool is_second_p
   } else if(card == 2) {
     // 相手の判明するカード
     for(int i = 0; i < 8; i++)
-      if(bs.hand_e(i)) actions.push_back(base * 10 + i);
+      if(bs.hand_e(i + 1)) actions.push_back(base * 10 + i);
   } else if(card == 3) {
     // 相手の判明するカード
     int other_i = bs.other_hand_s(card) - 1;
-    if(bs.hand_e(other_i)) actions.push_back(base * 100 + other_i * 11);
+    if(bs.hand_e(other_i + 1)) actions.push_back(base * 100 + other_i * 11);
   } else if(card == 6) {
     // 相手と交換するカード
     for(int i = 0; i < 8; i++)
-      if(bs.hand_e(i)) actions.push_back(base * 100 + (bs.other_hand_s(card) - 1) * 10 + i);
+      if(bs.hand_e(i + 1)) actions.push_back(base * 100 + (bs.other_hand_s(card) - 1) * 10 + i);
   }
 
   return actions;
@@ -507,8 +612,8 @@ std::vector<int> able_actions(const belief_state& bs, int card, bool is_second_p
 int action_count(const belief_state& bs) {
   if(bs.is_sol_choice) {
     int count = 0;
-    for(int i = 1; i < 8; i++) {
-      if(bs.deck_or_hand_e(i)) count++;
+    for(int card = 2; card <= 8; card++) {
+      if(bs.deck_or_hand_e(card)) count++;
     }
     return count;
   }

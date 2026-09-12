@@ -2,13 +2,27 @@
 #define BELIEF_STATE_LOSE_HPP
 #include "belief_state_win.hpp"
 
-std::vector<std::pair<int, int>> is_lose(const belief_state& bs);
-std::pair<bool, int> use_lose(const belief_state& bs, int card);
-std::pair<bool, int> wiz_lose(const belief_state& bs, bool to0p);
+// use_lose / wiz_lose が draw_win を呼ぶため、win 側の checker への参照を持つ。
+// 依存の向きは lose -> win の一方向 (ADR 0006)。
+struct belief_state_lose_checker {
+  explicit belief_state_lose_checker(belief_state_win_checker& w)
+    : win(w) {}
+
+  std::vector<std::pair<int, int>> is_lose(const belief_state& bs); // メモ化しない
+  std::pair<bool, int> use_lose(const belief_state& bs, int card);
+  std::pair<bool, int> wiz_lose(const belief_state& bs, bool to0p);
+
+private:
+  std::pair<bool, int> use_lose_impl(const belief_state& bs, int card);
+  std::pair<bool, int> wiz_lose_impl(const belief_state& bs, bool to0p);
+
+  belief_state_win_checker& win;
+  std::unordered_map<unsigned long long, std::pair<bool, int>> m_use_lose, m_wiz_lose;
+};
 
 //<使うカード, 敗北するまでのターン数>を返す。敗北しない場合は<0, 0>
 //ルール上すでに敗北の場合9, 魔術師の使用による敗北で,対象自分のみなら15,対象相手のみなら25
-std::vector<std::pair<int, int>> is_lose(const belief_state& bs) {
+std::vector<std::pair<int, int>> belief_state_lose_checker::is_lose(const belief_state& bs) {
   CW_BUMP(is_lose);
 
   if(bs.have_s(7) && bs.hand_s[0] + bs.hand_s[1] >= 12) {
@@ -42,7 +56,18 @@ std::vector<std::pair<int, int>> is_lose(const belief_state& bs) {
   } else return {};
 }
 
-std::pair<bool, int> use_lose(const belief_state& bs, int card) {
+std::pair<bool, int> belief_state_lose_checker::use_lose(const belief_state& bs, int card) {
+  const unsigned long long k = belief_state_win_checker::key(bs, card);
+  if(!commentable_bs) {
+    auto it = m_use_lose.find(k);
+    if(it != m_use_lose.end()) return it->second;
+  }
+  auto r = use_lose_impl(bs, card);
+  if(!commentable_bs) m_use_lose.emplace(k, r);
+  return r;
+}
+
+std::pair<bool, int> belief_state_lose_checker::use_lose_impl(const belief_state& bs, int card) {
   CW_BUMP(use_lose);
   if(card == 3 && !bs.barrier_e) {
     if(bs.hand_e_min() > bs.other_hand_s(3)) return {true, 1};
@@ -71,10 +96,10 @@ std::pair<bool, int> use_lose(const belief_state& bs, int card) {
   int max_f = -1;
 
   if(bs.barrier_e && card != 4 && card != 5 && card != 7) {
-    for(int i = 0; i < 8; i++) {
-      if(next_bs.hand_e(i)) {
-        struct belief_state next_bs2 = swap_player(next_bs, i + 1);
-        auto res = draw_win(next_bs2);
+    for(int card2 = 1; card2 <= 8; card2++) {
+      if(next_bs.hand_e(card2)) {
+        struct belief_state next_bs2 = swap_player(next_bs, card2);
+        auto res = win.draw_win(next_bs2);
         if(res.first) max_f = std::max(max_f, res.second);
         else return {false, 0};
       }
@@ -83,21 +108,21 @@ std::pair<bool, int> use_lose(const belief_state& bs, int card) {
   } else if(card == 1) {
     // カード1は宣言対象外だが、候補として残っていても異常ではない。
     validate_hand_e_candidate(bs, "sol");
-    for(int i = 1; i < 8; i++) {
-      if(bs.hand_e(i)) return {false, 0};
+    for(int card2 = 2; card2 <= 8; card2++) {
+      if(bs.hand_e(card2)) return {false, 0};
     }
-    if(bs.hand_e(0)) {
+    if(bs.hand_e(1)) {
       struct belief_state next_bs2 = swap_player(next_bs, 1);
-      auto res = draw_win(next_bs2);
+      auto res = win.draw_win(next_bs2);
       //ランダム宣言のみ
       return {res.first, res.first ? res.second + 1 : 0};
     }
   } else if(card == 2) {
-    for(int i = 0; i < 8; i++) {
-      if(bs.hand_e(i)) {
-        struct belief_state next_bs2 = swap_player(next_bs, i + 1);
+    for(int card2 = 1; card2 <= 8; card2++) {
+      if(bs.hand_e(card2)) {
+        struct belief_state next_bs2 = swap_player(next_bs, card2);
         // next_bs2.open_flag_s = i + 1;//自分のフラグは不要
-        auto res = draw_win(next_bs2);
+        auto res = win.draw_win(next_bs2);
         if(res.first) max_f = std::max(max_f, res.second);
         else return {false, 0};
       }
@@ -105,20 +130,20 @@ std::pair<bool, int> use_lose(const belief_state& bs, int card) {
     return {true, max_f + 1};
   } else if(card == 3) {
     int other = bs.other_hand_s(3);
-    if(bs.hand_e(other - 1)) {
+    if(bs.hand_e(other)) {
       struct belief_state next_bs2 = swap_player(next_bs, other);
       next_bs2.open_flag_e = other;
       // next_bs2.open_flag_s = other;//自分のフラグは不要
-      auto res = draw_win(next_bs2);
+      auto res = win.draw_win(next_bs2);
       if(res.first) return {true, res.second + 1};
     }
     return {false, 0};
   } else if(card == 4) {
     next_bs.barrier_s = true;
-    for(int i = 0; i < 8; i++) {
-      if(next_bs.hand_e(i)) {
-        struct belief_state next_bs2 = swap_player(next_bs, i + 1);
-        auto res = draw_win(next_bs2);
+    for(int card2 = 1; card2 <= 8; card2++) {
+      if(next_bs.hand_e(card2)) {
+        struct belief_state next_bs2 = swap_player(next_bs, card2);
+        auto res = win.draw_win(next_bs2);
         if(res.first) max_f = std::max(max_f, res.second);
         else return {false, 0};
       }
@@ -135,13 +160,13 @@ std::pair<bool, int> use_lose(const belief_state& bs, int card) {
   } else if(card == 6) {
     int other = bs.other_hand_s(6);
     next_bs.open_flag_e = other;
-    for(int i = 0; i < 8; i++) {
-      if(bs.hand_e(i)) {
+    for(int card2 = 1; card2 <= 8; card2++) {
+      if(bs.hand_e(card2)) {
         struct belief_state next_bs2 = next_bs;
-        next_bs2.hand_s[0] = i + 1;
-        next_bs2.open_flag_s = i + 1;
+        next_bs2.hand_s[0] = card2;
+        next_bs2.open_flag_s = card2;
         struct belief_state next_bs3 = swap_player(next_bs2, other);
-        auto res = draw_win(next_bs3);
+        auto res = win.draw_win(next_bs3);
         if(res.first) max_f = std::max(max_f, res.second);
         else return {false, 0};
       }
@@ -149,10 +174,10 @@ std::pair<bool, int> use_lose(const belief_state& bs, int card) {
     return {true, max_f + 1};
   } else if(card == 7) {
     next_bs.lt5_flag_s = true;
-    for(int i = 0; i < 8; i++) {
-      if(next_bs.hand_e(i)) {
-        struct belief_state next_bs2 = swap_player(next_bs, i + 1);
-        auto res = draw_win(next_bs2);
+    for(int card2 = 1; card2 <= 8; card2++) {
+      if(next_bs.hand_e(card2)) {
+        struct belief_state next_bs2 = swap_player(next_bs, card2);
+        auto res = win.draw_win(next_bs2);
         if(res.first) max_f = std::max(max_f, res.second);
         else return {false, 0};
       }
@@ -163,9 +188,20 @@ std::pair<bool, int> use_lose(const belief_state& bs, int card) {
   return {false, 0};
 }
 
-std::pair<bool, int> wiz_lose(const belief_state& bs, bool to0p) {
+std::pair<bool, int> belief_state_lose_checker::wiz_lose(const belief_state& bs, bool to0p) {
+  const unsigned long long k = belief_state_win_checker::key(bs, to0p ? 1 : 0);
+  if(!commentable_bs) {
+    auto it = m_wiz_lose.find(k);
+    if(it != m_wiz_lose.end()) return it->second;
+  }
+  auto r = wiz_lose_impl(bs, to0p);
+  if(!commentable_bs) m_wiz_lose.emplace(k, r);
+  return r;
+}
+
+std::pair<bool, int> belief_state_lose_checker::wiz_lose_impl(const belief_state& bs, bool to0p) {
   CW_BUMP(wiz_lose);
-  if(!to0p && bs.hand_e(7) && !bs.barrier_e) return {false, 0};
+  if(!to0p && bs.hand_e(8) && !bs.barrier_e) return {false, 0};
   if(to0p && bs.hand_s[0] == 7) return {true, 0};
   ef_wizard_preds preds;
   ef_wizard(bs, to0p, preds);
@@ -173,10 +209,10 @@ std::pair<bool, int> wiz_lose(const belief_state& bs, bool to0p) {
   int local_max_f = -1;
   for(const auto& p : preds) {
     validate_hand_e_candidate(p, "wizlose");
-    for(int i = 0; i < 8; i++) {
-      if(p.hand_e(i)) {
-        struct belief_state next_bs = swap_player(p, i + 1);
-        auto res = draw_win(next_bs);
+    for(int card = 1; card <= 8; card++) {
+      if(p.hand_e(card)) {
+        struct belief_state next_bs = swap_player(p, card);
+        auto res = win.draw_win(next_bs);
         if(res.first) local_max_f = std::max(local_max_f, res.second);
         else return {false, 0};
       }

@@ -156,7 +156,8 @@ void compare_abs_cfr(int open[3]) {
   output_hash_history(his->first, true);
   auto bs = belief_state(open, his->first);
   bs.print();
-  cout << "win" << is_win(bs).first << endl;
+  belief_state_win_checker wc;
+  cout << "win" << wc.is_win(bs).first << endl;
   node n(open);
   string key = his->first;
   for(int i = 1; i < 9; i++) {

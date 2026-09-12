@@ -66,10 +66,35 @@ Belief State は依存が一方向の4ファイルに分かれている。umbrel
 `sol_win` `wiz_win`) は相互再帰の強連結成分なので分割できない。必敗側は
 `draw_win` を呼ぶが、必勝側は必敗側を一度も呼ばない。
 
+**判定はメモ化されており、`belief_state_win_checker` / `belief_state_lose_checker`
+のメンバとして呼ぶ** (自由関数ではない)。
+
+```cpp
+belief_state_win_checker wc;
+belief_state_lose_checker lc{wc};   // wc を先に宣言すること
+auto r = wc.use_win(bs, card);
+auto l = lc.use_lose(bs, card);
+```
+
+**checker は部分ゲーム1回の実行を通して使い回すこと。** 局所に作ると呼ばれる
+たびにメモ表が捨てられ、効果が完全に消える。`cfrorg` は `winlose_visitor` が
+1つ持ち、`win` は `infset_iswin` が作って `cnt_abs` に参照で渡している。
+
+メモ化されているのは `use_win` `enemy_turn_win` `draw_win` `sol_win` `wiz_win`
+`use_lose` `wiz_lose` の7本。`is_terminated_win` `is_win` `is_lose` はしていない。
+判定に**グローバル変数を読むコードを足してはいけない** (純関数でなくなると
+メモ化が壊れる)。詳細は `docs/adr/0007-memoize-judgement.md`。
+
 2引数のコンストラクタ `belief_state(open, history)` を使うなら
 `belief_state_history.hpp` を include すること。既定引数 `rnd = true` は
 **宣言側ではなく定義側**に書かれているので、`belief_state.hpp` だけでは見えない。
 
+- **アクセサはカード (1〜8) を取る。** `hand_e(card)` `deck(card)` `deck_or_hand_e(card)`
+  `hand_s_est(card)` `have_s(card)` すべて 1-origin で揃えてある。カードを回すループは
+  `for(int card = 1; card <= 8; card++)`。`- 1` が要るのは `trash[]` と `max_num[]` の
+  添字だけで、`sol_flag_*[2]` `hand_s[2]` は `[0]` `[1]` 固定なので足してはいけない。
+  例外は `belief_state_win.hpp` の `able_actions` で、行動コードが 0-origin の添字を
+  そのまま桁に埋め込むシリアライズ形式のため、この関数の中だけ添字で通している。
 - `_s` = 視点プレイヤー自身、`_e` = 相手。`hand_s[2]` が自分の手札で、相手の手札は `trash` と推論フラグ (`open_flag_e`, `sol_flag_e`, `lt5_flag_e`, `not7_flag_e`) から `hand_e(i)` で候補集合として復元する。
 - 推論フラグの意味: `lt5_*` = 大臣(7)を出したので残りの手札は5未満、`not7_*` = 魔術師(5)を出したので大臣(7)は持っていない、`sol_*` = 兵士で宣言されて外れたカード。
 - 選択ノード (`is_sol_choice` / `is_wiz_choice`) では必ず `hand_s[1] == 0`。また相手が `barrier_e` のときは宣言・対象選択自体が発生しないので選択ノードにならない。

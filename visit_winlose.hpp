@@ -17,6 +17,11 @@
 // depth は node::do_action で ++、node::undo_action で -- され、上限は 30
 // （loveletter.hpp の npi[3][32] が根拠）。
 struct winlose_visitor {
+  // 判定は belief_state と引数以外の可変状態を読まない純関数なので、
+  // このインスタンスの生存期間 (部分ゲーム1回の実行) を通してメモ化を共有する。
+  belief_state_win_checker wc;
+  belief_state_lose_checker lc{wc};
+
   // 削減対象マーカー。bool ではなく int カウンタ。
   // 祖先が立てた分と自分が立てた分を区別せずに済むので con_cutting_* の退避が要らない。
   int cutting_w = 0;
@@ -73,10 +78,10 @@ struct winlose_visitor {
   void enter_play(node &n, int c1, int c2) {
     std::string key = n.org_his_p[n.turn].get_hash_value();
     belief_state bs(n.open, key, false);
-    auto res_0win = use_win(bs, c1);
-    auto res_1win = use_win(bs, c2);
-    auto res_0lose = use_lose(bs, c1);
-    auto res_1lose = use_lose(bs, c2);
+    auto res_0win = wc.use_win(bs, c1);
+    auto res_1win = wc.use_win(bs, c2);
+    auto res_0lose = lc.use_lose(bs, c1);
+    auto res_1lose = lc.use_lose(bs, c2);
     bool rm_bywin = res_0win.first || res_1win.first || cutting_w > 0;
     bool rm_bylose = res_0lose.first || res_1lose.first || cutting_l > 0;
     assert(0 <= res_0win.second && res_0win.second < 11);
@@ -121,7 +126,7 @@ struct winlose_visitor {
       soldier_key[n.depth] = key;
       soldier_bs[n.depth] = belief_state(n.open, key, false);
     }
-    auto res_win = sol_win(soldier_bs[n.depth], i);
+    auto res_win = wc.sol_win(soldier_bs[n.depth], i);
     bool rm_bywin = res_win.first || cutting_w > 0;
     bool rm_bylose = cutting_l > 0;
     assert(0 <= res_win.second && res_win.second < 11);
@@ -144,10 +149,10 @@ struct winlose_visitor {
   void enter_wizard(node &n) {
     std::string key = n.org_his_p[n.turn].get_hash_value();
     belief_state bs(n.open, key, false);
-    auto res_0win = wiz_win(bs, 0);
-    auto res_1win = wiz_win(bs, 1);
-    auto res_0lose = wiz_lose(bs, 0);
-    auto res_1lose = wiz_lose(bs, 1);
+    auto res_0win = wc.wiz_win(bs, 0);
+    auto res_1win = wc.wiz_win(bs, 1);
+    auto res_0lose = lc.wiz_lose(bs, 0);
+    auto res_1lose = lc.wiz_lose(bs, 1);
     bool rm_bywin = res_0win.first || res_1win.first || cutting_w > 0;
     bool rm_bylose = res_0lose.first || res_1lose.first || cutting_l > 0;
     assert(0 <= res_0win.second && res_0win.second < 11);
