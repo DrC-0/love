@@ -40,11 +40,11 @@ watch: cfr_org.cpp belief_state_history.hpp $(COMMON_SRCS) $(COMMON_HDRS)
 
 # --- Best Response系ターゲット (-DBEST_RESPONSE を使用) ---
 
-brrnd: br_rnd.cpp $(COMMON_SRCS) $(COMMON_HDRS)
+brrnd: br_rnd.cpp all_elements.hpp infset_dfs_rnd.hpp $(COMMON_SRCS) $(COMMON_HDRS)
 	g++ -std=c++20 $(COMMON_WARN) -O2 $(COMMON_DEFS) -DBEST_RESPONSE $(COMMON_SRCS) br_rnd.cpp -o $@
 
 brorg: br.cpp all_elements.hpp infset_dfs.hpp $(COMMON_SRCS) $(COMMON_HDRS)
-	g++ -std=c++20 $(COMMON_WARN) -O2 $(COMMON_DEFS) -DBEST_RESPONSE $(COMMON_SRCS) br.cpp -o $@
+	g++ -std=c++20 $(COMMON_WARN) -O2 $(COMMON_DEFS) -DBEST_RESPONSE -DALL_ELEMENTS_ORG $(COMMON_SRCS) br.cpp -o $@
 
 win: infset_iswin.cpp save_load_abshistory.hpp \
      belief_state.hpp belief_state_history.hpp belief_state_win.hpp belief_state_lose.hpp \
@@ -53,6 +53,7 @@ win: infset_iswin.cpp save_load_abshistory.hpp \
 
 
 comp: compare_abscfr.cpp save_load_abshistory.hpp \
+      all_elements.hpp infset_dfs.hpp \
       belief_state.hpp belief_state_history.hpp belief_state_win.hpp belief_state_lose.hpp \
       $(COMMON_SRCS) $(COMMON_HDRS)
 	g++ -std=c++20 $(COMMON_WARN) -O2 $(COMMON_DEFS)  $(COMMON_SRCS) compare_abscfr.cpp -o $@

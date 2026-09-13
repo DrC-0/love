@@ -24,6 +24,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - 変更後は `make cfr cfr0 cfrorg brrnd brorg win` が通ることを確認する（実行までは不要）。
 - `watch` は現状リンクエラー（`watch_cfr.cpp` が `cfr_switch` を定義していない）。`make all` はここで止まるので、上記6ターゲットを個別に指定する。
 - 通常ビルドは `-DNDEBUG` なので `assert` は無効。assert を効かせたいときは `make cfrorgd`（出力名は `cfrorg` のまま）。
+- **既知の未修正の不具合**: `./comp 5 5 7` は実行のたびに結果が変わる（正常終了 /
+  abort / segfault）。`rnd_action.hpp` / `org_action.hpp` の `get_action` が範囲外を
+  検出しても `assert`（NDEBUG で無効）に任せて `wordlist[v]` を返しているため。
+  `373d4ba` から再現する。`comp 4 4 6` は影響を受けず決定的なので、回帰の比較には
+  446 だけを使う。処方箋は `Card` / `MaybeCard` と同じ「常時有効の検査」。
 - 実行時は部分ゲームの3枚を引数で渡す: `./cfrorg 5 5 7`、`./win 4 4 6`。
 - 自動テストは存在しない。`test.cpp` は gitignore 済みの手動デバッグ用スクラッチで、`main` を書き換えて使う。
 
@@ -42,6 +47,27 @@ org 側だけ、ゲーム木の展開と必勝・必敗判定が分離してあ�
 `visit_winlose.hpp` の隣に同じフックを持つ struct を書く。展開部分は複製しない。
 rnd 側は `rnd_make_infset.hpp` が情報集合表を作り、`infset_iswin.cpp` が第2フェーズで
 判定する二相構成のまま。org を二相にしてはいけない理由は `docs/adr/0001` を参照。
+
+`all_elements.hpp` は org/rnd を畳んだ**唯一の展開器**で、
+`template <class P> struct all_elements_walker` の1本しかない。`P` は
+`org_elements` / `rnd_elements` のどちらか。
+
+- **どちらになるかは `ALL_ELEMENTS_ORG` で決まる。** Makefile の `brorg` の行にだけ
+  `-DALL_ELEMENTS_ORG` が付いている。`brrnd` と `comp` には付けない。付けると
+  rnd が org に化ける。
+- `infset_dfs.hpp` / `infset_dfs_rnd.hpp` は `all_exp_reward` の中から
+  `all_put_hide_card` などを**無修飾の自由関数として**呼ぶ。この呼び出しを
+  受けるため、`all_elements.hpp` の末尾に `inline` のラッパーが8本ある。
+  `infset_dfs*.hpp` 側を `all_elements_walker<...>::` に書き換えてはいけない。
+  `infset_dfs.hpp` は `br.cpp` (org) と `compare_abscfr.cpp` (rnd) の両方から
+  include されるので、どちらかが必ず壊れる。
+- **`table_infset` を引く2箇所はポリシーを通さず `n.rnd_his_p` 固定。**
+  org ビルドでも情報集合表は rnd のものだから。木の履歴だけが `P::his` / `P::his_p`。
+- 兵士の扱いの違いは `if constexpr(P::soldior_is_decision)` で分かれている。
+  `if constexpr` で捨てられる側でも名前解決は起きるので、org 分岐が使う
+  `soldior_prob` の `extern` 宣言がファイル先頭にある。
+
+詳細と経緯は `docs/adr/0002-template-based-walker-visitor.md` を参照。
 
 ## 行動履歴のエンコード（間違えやすい）
 

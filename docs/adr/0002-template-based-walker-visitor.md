@@ -58,3 +58,71 @@ extern game_tree_mode g;
 「実行時 enum で畳む案は一度試されて、同じ絡まり方をした」という事実は
 テンプレート + policy を選ぶ理由の実物なので、ここに残す。中身は
 `git log -- newcfr.hpp` で辿れる。
+
+### 実施: `all_elements` の org/rnd を畳んだ (2026-09-13)
+
+8本のうち最初の対を畳んだ。`all_elements.hpp` (573行) と
+`all_elements_rnd.hpp` (526行) を `template <class P> struct all_elements_walker`
+1本にし、合計 1,099行 → 626行。
+
+ポリシー型が供給するのは4つだけだった。
+
+| ポリシーの要素 | org | rnd |
+|---|---|---|
+| 完全ハッシュ表 `ph()` | `oph` | `rph` |
+| `max_hash_value` | `ORG_MAX_HASH_VALUE` | `RND_MAX_HASH_VALUE` |
+| 木の履歴 `his()` / `his_p()` | `org_his` / `org_his_p` | `rnd_his` / `rnd_his_p` |
+| `soldior_is_decision` | `true` | `false` |
+
+機械的な置換で消えない差は 573行中 **75行** で、その大半が兵士 (`case 1`) の扱い。
+org は宣言を意思決定として列挙し、rnd は一様ランダムとみなして確率を計算するだけ。
+これは `if constexpr(P::soldior_is_decision)` で分けた。
+
+#### 学び1: ポリシーを通してはいけないものがある
+
+`table_infset` を引く2箇所は、**org 版でも `rnd_his_p` と書かれている**。
+`br.cpp` は org ビルドでも `rnd_make_infset.hpp` を include して rnd の
+情報集合表を作るため。「ゲーム木の履歴は org、情報集合表の鍵は rnd」という
+使い分けが意図的にある。ここをポリシー経由に「統一」すると org の挙動が変わる。
+
+対をテンプレートに畳むとき、**2つのファイルの差分がすべてモデルの差とは限らない**。
+同じに見えて意図的に片方に寄せてある箇所を先に洗い出すこと。
+
+#### 学び2: 自由関数の暗黙の切り替えに依存していた
+
+`infset_dfs.hpp` / `infset_dfs_rnd.hpp` は `all_exp_reward` の中から
+`all_put_hide_card` などを**無修飾の自由関数として**呼んでいる。そして
+`infset_dfs.hpp` は `br.cpp` と `compare_abscfr.cpp` の両方から include され、
+**同じ1行が翻訳単位によって別の関数に解決されていた**。切り替えは
+「どちらの `all_elements` を include したか」という暗黙の仕掛け。
+
+そのため `infset_dfs*.hpp` 側に `all_elements_walker<org_elements>::` と
+直書きすると、`br.cpp` か `compare_abscfr.cpp` のどちらかが必ず壊れる。
+
+解決として、旧シグネチャの `inline` 自由関数ラッパーを8本残し、その中身を
+`ALL_ELEMENTS_ORG` で選ぶ形にした。Makefile の `brorg` にだけ `-D` を付ける。
+結果として `infset_dfs*.hpp` (計1,642行) と `br.cpp` は**1行も変えずに済んだ**。
+
+暗黙の切り替え (どちらのファイルを include したか) が明示の切り替え
+(フラグ1つ) になったので、残り3対を畳むときも同じ手が使える。
+
+#### 学び3: `if constexpr` で捨てられる側でも名前解決は起きる
+
+org 分岐は `soldior_prob` を参照するが、`br_rnd.cpp` はこの配列を定義していない。
+`if constexpr` は**コード生成**を捨てるだけで、非依存名の**名前解決**は
+テンプレート定義時に起きる。そのため `all_elements.hpp` に
+`extern double soldior_prob[8];` の宣言が必要になった (定義は不要。捨てられた
+分岐は odr-use しないのでリンクは通る)。
+
+#### 検証
+
+`brorg` は完走しない (`5 5 7` で40分打ち切り、`4 4 6` で10分打ち切り)。
+実行による検証は `comp 4 4 6` (70秒、出力20行) だけで、これは rnd 側しか通らない。
+**org 側はコンパイルとシンボルの確認までしか保証できていない。**
+
+- `nm -C brorg | grep 'all_elements_walker<org_elements>'` が8本
+- `nm -C comp` に org は0本、`nm -C brrnd` にも0本
+
+`comp 5 5 7` は検証に使えない。`get_action` が範囲外の添字で gperf の語表を
+読む未定義動作があり、実行のたびに正常終了 / abort / segfault が変わる。
+`373d4ba` から再現する既存の不具合で、この変更とは無関係。

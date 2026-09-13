@@ -50,7 +50,7 @@ unsigned long int end_points = 0;
 unsigned long int soldior_infsets = 0;
 unsigned long int soldior_points = 0;
 
-#include "all_elements_rnd.hpp"
+#include "all_elements.hpp"
 #include "rnd_make_infset.hpp"
 #include "infset_dfs.hpp"
 #include "save_load_abshistory.hpp"
