@@ -136,6 +136,9 @@ struct winlose_visitor {
     if(!rm_bywin && !rm_bylose) decision_points[3]++;
     if(res_win.first) win_points[res_win.second]++;
     else win_points[0]++;
+    // 兵士の宣言ノードには必敗判定が無いので、全件が「該当なし」= index 0 になる。
+    // これを数えないと lose_points の合計が decision_points[0] と一致しない。
+    lose_points[0]++;
     soldier_inc[n.depth] = res_win.first;
   }
   void enter_soldier_branch(const node &n) {

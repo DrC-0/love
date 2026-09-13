@@ -28,8 +28,11 @@
 #     うち 1 本も終わらない。win には打ち切りの手段が無いのでコストは固定。
 #   - 部分ゲーム 446 は外せない。557 は開示3枚が {5,5,7} で魔術師 2 枚が
 #     どちらも取り除かれるため、wiz_win / wiz_lose / ef_wizard を一度も通らない。
-#   - win は abs/abs<部分ゲーム>.bin を上書きする。このスクリプトは実行前に
-#     退避し、終了時 (中断時も) に必ず戻す。
+#   - win は CWD 相対の abs/ に abs<部分ゲーム>.bin を書く。本物の abs/ を触らない
+#     よう、作業用ディレクトリに移動してから走らせる。以前は本物を退避して戻す方式に
+#     していたが、退避先が logs/regress/ 配下だったため、中断した実行の退避が残った
+#     まま logs/regress を消すと原本ごと失われた (実際に abs557.bin を失った)。
+#     触らないのが一番安全なので、退避はしない。
 
 set -u
 
@@ -44,19 +47,15 @@ CFRORG_SLOW=("5 5 7 6" "4 4 6 6")
 # win: "<3枚>"
 WIN_CASES=("5 5 7" "4 4 6")
 
-ABS_STASH=""
+# win を走らせる作業用ディレクトリ。本物の abs/ には一切触らない。
+WIN_WORK=""
 
-restore_abs() {
-    [ -n "$ABS_STASH" ] || return 0
-    [ -d "$ABS_STASH" ] || return 0
-    for f in "$ABS_STASH"/*.bin; do
-        [ -e "$f" ] || continue
-        mv -f "$f" "abs/$(basename "$f")"
-    done
-    rmdir "$ABS_STASH" 2>/dev/null
-    ABS_STASH=""
+cleanup_win_work() {
+    [ -n "$WIN_WORK" ] || return 0
+    rm -rf "$WIN_WORK"
+    WIN_WORK=""
 }
-trap restore_abs EXIT INT TERM
+trap cleanup_win_work EXIT INT TERM
 
 usage() {
     echo "usage: $0 {save|check} [quick]" >&2
@@ -127,37 +126,36 @@ done
 
 # --- win ---
 if [ "$scope" = full ]; then
-    ABS_STASH=$(mktemp -d "$LOG_DIR/absstash.XXXXXX")
-    mkdir -p abs
+    # 本物の abs/ を触らないよう、作業用ディレクトリで走らせる。
+    # mktemp はリポジトリ外に作るので、logs/ を消しても影響しない。
+    WIN_WORK=$(mktemp -d "${TMPDIR:-/tmp}/regress_win.XXXXXX")
+    win_bin=$(pwd)/win
+    outdir_abs=$(cd "$outdir" && pwd)
+    base_abs=$(cd "$BASE_DIR" 2>/dev/null && pwd)
+    mkdir -p "$WIN_WORK/abs"
+
     for c in "${WIN_CASES[@]}"; do
         set -- $c
         sg="$1$2$3"
         name="win-$sg"
-        binfile="abs/abs$sg.bin"
 
-        # 既存の実験結果を退避してから走らせる
-        [ -e "$binfile" ] && mv "$binfile" "$ABS_STASH/abs$sg.bin"
+        ( cd "$WIN_WORK" && "$win_bin" "$1" "$2" "$3" > "$outdir_abs/$name.out" 2>/dev/null )
 
-        ./win "$1" "$2" "$3" > "$outdir/$name.out" 2>/dev/null
-
+        binfile="$WIN_WORK/abs/abs$sg.bin"
         if [ -e "$binfile" ]; then
             sha256sum < "$binfile" > "$outdir/$name.abs.sha256"
-            # 不一致のときに実物が要るので、比較まで消さない
-            mv "$binfile" "$outdir/abs$sg.bin"
         else
             echo "(abs bin was not produced)" > "$outdir/$name.abs.sha256"
         fi
 
         if [ "$mode" = check ]; then
-            compare "$name-stdout" "$outdir/$name.out" "$BASE_DIR/$name.out"
-            compare "$name-absbin" "$outdir/$name.abs.sha256" "$BASE_DIR/$name.abs.sha256"
+            compare "$name-stdout" "$outdir/$name.out" "$base_abs/$name.out"
+            compare "$name-absbin" "$outdir/$name.abs.sha256" "$base_abs/$name.abs.sha256"
         else
             echo "saved    $name"
         fi
-        # 基準に 100MB 級の bin は置かない。sha256 だけ残す
-        rm -f "$outdir/abs$sg.bin"
     done
-    restore_abs
+    cleanup_win_work
 fi
 
 if [ "$mode" = save ]; then
