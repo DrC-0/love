@@ -89,6 +89,21 @@ auto l = lc.use_lose(bs, card);
 `belief_state_history.hpp` を include すること。既定引数 `rnd = true` は
 **宣言側ではなく定義側**に書かれているので、`belief_state.hpp` だけでは見えない。
 
+- **カードには型がある。** `Card` は 1〜8 で「無い」を表せない。`MaybeCard` は
+  「カード または 無し」で、`hand_s[2]` `open_flag_s/e` `sol_flag_s/e[2]` の格納と、
+  `open_e()` `open_s()` `other_hand_s()` `hand_e_max/min()` `deck_or_hand_e_min()`
+  の戻り値がこれ。**`MaybeCard` に順序比較は無い** (`open_e() > 1` のような、
+  存在確認と値の比較を混ぜた書き方を封じるため)。`has_value()` で確かめてから
+  `value()` で `Card` にする。`trash[]` は枚数なので `int` のまま。
+  値域 (`Card` は 1〜8、`MaybeCard::value()` は「無し」で呼ばない) は
+  **NDEBUG でも検査される**。`assert` ではなく常時有効の検査にしてあるのは、
+  assert 有効ビルドが 16〜17 倍遅くて実際には回されないため
+  (原因は `node::valid_data()` で、`Card` の検査は実測 +1% 未満)。
+  **常に成り立つべき不変条件を `assert` で書かないこと。**
+  詳細は `docs/adr/0008-card-types.md`。
+- **カードでないものに `Card` を当てないこと。** `able_actions` の `card` 引数は
+  `is_lose` が返す多目的のコードで、カード 1〜8 のほかに 0 / 9 / 15 / 25 を取り、
+  `is_wiz_choice` の分岐では 0/1 の対象選択フラグになる。`int` のまま。
 - **アクセサはカード (1〜8) を取る。** `hand_e(card)` `deck(card)` `deck_or_hand_e(card)`
   `hand_s_est(card)` `have_s(card)` すべて 1-origin で揃えてある。カードを回すループは
   `for(int card = 1; card <= 8; card++)`。`- 1` が要るのは `trash[]` と `max_num[]` の

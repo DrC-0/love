@@ -4,8 +4,8 @@
 
 belief_state::belief_state(int open[3], std::string history, bool rnd = true)
   : is_my_turn(false), is_sol_choice(false), is_wiz_choice(false),
-    not7_flag_s(false), not7_flag_e(false), barrier_s(false), barrier_e(false), lt5_flag_s(false), lt5_flag_e(false), open_flag_s(0),
-    open_flag_e(0), sol_flag_s{0, 0}, sol_flag_e{0, 0}, hand_s{0, 0}, trash{0, 0, 0, 0, 0, 0, 0, 0} {
+    not7_flag_s(false), not7_flag_e(false), barrier_s(false), barrier_e(false), lt5_flag_s(false), lt5_flag_e(false), open_flag_s(),
+    open_flag_e(), sol_flag_s{}, sol_flag_e{}, hand_s{}, trash{0, 0, 0, 0, 0, 0, 0, 0} {
   CW_BUMP(belief_state_from_history);
   for(int i = 0; i < 3; i++) {
     trash[open[i] - 1] += 1;
@@ -22,15 +22,15 @@ belief_state::belief_state(int open[3], std::string history, bool rnd = true)
     int num2 = c2a % 10;
 
     if(num1 == 1) {
-      hand_s[0] = num2 + 1;
+      hand_s[0] = Card{num2 + 1};
       is_my_turn = true;
       is_second_player = false;
     } else if(num1 == 2) {
-      hand_s[0] = num2 + 1;
+      hand_s[0] = Card{num2 + 1};
       is_my_turn = false;
       is_second_player = true;
     } else if(num1 == 3) {
-      hand_s[1] = num2 + 1;
+      hand_s[1] = Card{num2 + 1};
       barrier_s = false;
     } else if(num1 == 4) {
       is_sol_choice = false;
@@ -38,16 +38,16 @@ belief_state::belief_state(int open[3], std::string history, bool rnd = true)
       if(is_my_turn) { // player1のカード使用
         trash[num2] += 1;
 
-        if(hand_s[0] == num2 + 1) { //手札を減らす
+        if(hand_s[0] == Card{num2 + 1}) { //手札を減らす
           hand_s[0] = hand_s[1];
-          hand_s[1] = 0;
-        } else if(hand_s[1] == num2 + 1) {
-          hand_s[1] = 0;
+          hand_s[1] = MaybeCard();
+        } else if(hand_s[1] == Card{num2 + 1}) {
+          hand_s[1] = MaybeCard();
         }
 
         //手札の候補のリセット
         barrier_s = false;
-        *this = reset_flag_by_use(*this, true, num2 + 1);
+        *this = reset_flag_by_use(*this, true, Card{num2 + 1});
 
         if(num2 + 1 == 1) {
           //相手が保護されている場合、宣言自体が行われないため選択ノードにはならない
@@ -55,16 +55,16 @@ belief_state::belief_state(int open[3], std::string history, bool rnd = true)
             if(action.size() > 1) {
               int c2t = char_to_twonum(action[1]);
               int choice = (c2t % 10) + 1;
-              if(choice > 1) add_sol_e(choice);
+              if(choice > 1) add_sol_e(Card{choice});
             } else is_sol_choice = true;
           }
         } else if(num2 + 1 == 2 && !barrier_e) {
           int c2t = char_to_twonum(action[1]);
-          open_flag_e = (c2t % 10) + 1;
+          open_flag_e = Card{(c2t % 10) + 1};
         } else if(num2 + 1 == 3 && !barrier_e) {
           int c2t = char_to_twonum(action[1]);
-          open_flag_e = (c2t % 10) + 1;
-          open_flag_s = (c2t % 10) + 1;
+          open_flag_e = Card{(c2t % 10) + 1};
+          open_flag_s = Card{(c2t % 10) + 1};
         } else if(num2 + 1 == 4) {
           barrier_s = true;
         } else if(num2 + 1 == 5) {
@@ -76,7 +76,7 @@ belief_state::belief_state(int open[3], std::string history, bool rnd = true)
             int draw = c2w % 10;
             if(is_second_player == to) {
               trash[trashcard] += 1;
-              hand_s[0] = draw + 1;
+              hand_s[0] = Card{draw + 1};
               reset_flag(true); //自分のフラグリセット
             } else if(!barrier_e) {
               trash[trashcard] += 1;
@@ -85,11 +85,11 @@ belief_state::belief_state(int open[3], std::string history, bool rnd = true)
           } else is_wiz_choice = true;
         } else if(num2 + 1 == 6 && !barrier_e) {
           int c2t = char_to_twonum(action[1]);
-          hand_s[0] = (c2t % 10) + 1;
+          hand_s[0] = Card{(c2t % 10) + 1};
           reset_flag(true);
           reset_flag(false);
-          open_flag_s = (c2t % 10) + 1;
-          open_flag_e = (c2t / 10) + 1;
+          open_flag_s = Card{(c2t % 10) + 1};
+          open_flag_e = Card{(c2t / 10) + 1};
         } else if(num2 + 1 == 7) {
           lt5_flag_s = true;
         } else {
@@ -99,18 +99,18 @@ belief_state::belief_state(int open[3], std::string history, bool rnd = true)
 
         //手札の候補のリセット
         barrier_e = false;
-        *this = reset_flag_by_use(*this, false, num2 + 1);
+        *this = reset_flag_by_use(*this, false, Card{num2 + 1});
         if(num2 + 1 == 1 && !barrier_s && action.size() > 1) {
           int c2t = char_to_twonum(action[1]);
           int choice = (c2t % 10) + 1;
-          if(choice > 1) add_sol_s(choice);
+          if(choice > 1) add_sol_s(Card{choice});
         } else if(num2 + 1 == 2 && !barrier_s) {
           int c2t = char_to_twonum(action[1]);
-          open_flag_s = (c2t % 10) + 1;
+          open_flag_s = Card{(c2t % 10) + 1};
         } else if(num2 + 1 == 3 && !barrier_s) {
           int c2t = char_to_twonum(action[1]);
-          open_flag_e = (c2t % 10) + 1;
-          open_flag_s = (c2t % 10) + 1;
+          open_flag_e = Card{(c2t % 10) + 1};
+          open_flag_s = Card{(c2t % 10) + 1};
         } else if(num2 + 1 == 4) {
           barrier_e = true;
         } else if(num2 + 1 == 5) {
@@ -124,16 +124,16 @@ belief_state::belief_state(int open[3], std::string history, bool rnd = true)
             reset_flag(false); //相手のフラグリセット
           } else if(!barrier_s) {
             trash[trashcard] += 1;
-            hand_s[0] = draw + 1;
+            hand_s[0] = Card{draw + 1};
             reset_flag(true); //自分のフラグリセット
           }
         } else if(num2 + 1 == 6 && !barrier_s) {
           int c2t = char_to_twonum(action[1]);
-          hand_s[0] = (c2t % 10) + 1;
+          hand_s[0] = Card{(c2t % 10) + 1};
           reset_flag(true);
           reset_flag(false);
-          open_flag_s = (c2t % 10) + 1;
-          open_flag_e = (c2t / 10) + 1;
+          open_flag_s = Card{(c2t % 10) + 1};
+          open_flag_e = Card{(c2t / 10) + 1};
         } else if(num2 + 1 == 7) {
           lt5_flag_e = true;
         }

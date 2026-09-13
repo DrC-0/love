@@ -24,61 +24,42 @@ struct belief_state {
   bool barrier_e; // 1bit
   bool lt5_flag_s; // 1bit
   bool lt5_flag_e; // 1bit
-  int open_flag_s; // 4bit
-  int open_flag_e; // 4bit
-  int sol_flag_s[2]; // 7bit
-  int sol_flag_e[2]; // 7bit
-  int hand_s[2]; // 6bit
+  MaybeCard open_flag_s; // 4bit
+  MaybeCard open_flag_e; // 4bit
+  MaybeCard sol_flag_s[2]; // 7bit
+  MaybeCard sol_flag_e[2]; // 7bit
+  MaybeCard hand_s[2]; // 6bit
   int trash[8]; // 14bit
   belief_state()
     : is_my_turn(false), is_sol_choice(false), is_wiz_choice(false), not7_flag_s(false), not7_flag_e(false),
-      barrier_s(false), barrier_e(false), lt5_flag_s(false), lt5_flag_e(false), open_flag_s(0), open_flag_e(0),
-      sol_flag_s{0, 0}, sol_flag_e{0, 0}, hand_s{0, 0}, trash{0, 0, 0, 0, 0, 0, 0, 0} {}
-  belief_state(bool is_my_turn, bool is_sol_choice, bool is_wiz_choice, bool not7_flag_s, bool not7_flag_e, bool barrier_s, bool barrier_e,
-              bool lt5_flag_s, bool lt5_flag_e, int open_flag_s, int open_flag_e,
-              int sol_flag_s[2], int sol_flag_e[2], const int hand_s[2], const int trash[8])
-    : is_my_turn(is_my_turn),
-      is_sol_choice(is_sol_choice),
-      is_wiz_choice(is_wiz_choice),
-      not7_flag_s(not7_flag_s),
-      not7_flag_e(not7_flag_e),
-      barrier_s(barrier_s),
-      barrier_e(barrier_e),
-      lt5_flag_s(lt5_flag_s),
-      lt5_flag_e(lt5_flag_e),
-      open_flag_s(open_flag_s),
-      open_flag_e(open_flag_e) {
-    std::copy(sol_flag_s, sol_flag_s + 2, this->sol_flag_s);
-    std::copy(sol_flag_e, sol_flag_e + 2, this->sol_flag_e);
-    std::copy(hand_s, hand_s + 2, this->hand_s);
-    std::copy(trash, trash + 8, this->trash);
-  }
+      barrier_s(false), barrier_e(false), lt5_flag_s(false), lt5_flag_e(false), open_flag_s(), open_flag_e(),
+      sol_flag_s{}, sol_flag_e{}, hand_s{}, trash{0, 0, 0, 0, 0, 0, 0, 0} {}
   belief_state(int open[3], std::string history, bool rnd);
-  int deck_or_hand_e(int card) const;
-  bool hand_e(int card) const;
-  bool hand_s_est(int card) const;
-  int open_e() const;
-  int open_s() const;
-  bool deck(int card) const;
+  int deck_or_hand_e(Card card) const;
+  bool hand_e(Card card) const;
+  bool hand_s_est(Card card) const;
+  MaybeCard open_e() const;
+  MaybeCard open_s() const;
+  bool deck(Card card) const;
   // open_e() は8要素ループの中で不変なので、括り出した値を渡せる版。
-  bool deck(int card, int open_card) const;
-  bool have_s(int card) const;
-  int other_hand_s(int card) const;
+  bool deck(Card card, MaybeCard open_card) const;
+  bool have_s(Card card) const;
+  MaybeCard other_hand_s(Card card) const;
   int count_deck() const;
-  int hand_e_max() const;
-  int hand_e_min() const;
-  int deck_or_hand_e_min() const;
-  void add_sol_s(int card);
-  void add_sol_e(int card);
+  MaybeCard hand_e_max() const;
+  MaybeCard hand_e_min() const;
+  MaybeCard deck_or_hand_e_min() const;
+  void add_sol_s(Card card);
+  void add_sol_e(Card card);
   void reset_flag(bool is_self);
   void print() const;
 };
 
-int trash_and_hand_s(const int card, const int hand[2], const int trash[8]);
-int deck_or_hand_e(const int card, const int hand[2], const int trash[8]);
-bool hand_e(const int card, const int hand[2], const int trash[8], const int open_flag_e, const int sol_flag_e[2], const bool lt5_flag_e, const bool not7_flag_e);
+int trash_and_hand_s(const Card card, const MaybeCard hand[2], const int trash[8]);
+int deck_or_hand_e(const Card card, const MaybeCard hand[2], const int trash[8]);
+bool hand_e(const Card card, const MaybeCard hand[2], const int trash[8], const MaybeCard open_flag_e, const MaybeCard sol_flag_e[2], const bool lt5_flag_e, const bool not7_flag_e);
 
-belief_state reset_flag_by_use(const belief_state& bs, bool is_self, int card);
+belief_state reset_flag_by_use(const belief_state& bs, bool is_self, Card card);
 // ef_wizard の候補置き場。呼び出し側は1回舐めて捨てるだけなので、
 // std::vector を作らず呼び出し側のスタックに置く。要素は
 // for(int i = 0; i < 8; i++) の中で高々1回ずつ push されるので最大8個。
@@ -100,119 +81,122 @@ struct ef_wizard_preds {
   }
 };
 void ef_wizard(const belief_state& bs, bool to_0p, ef_wizard_preds& out);
-belief_state draw(const belief_state& bs, int draw_card);
-belief_state swap_player(const belief_state& bs, const int hand);
+belief_state draw(const belief_state& bs, Card draw_card);
+belief_state swap_player(const belief_state& bs, Card hand);
 [[noreturn]] void exit_with_print(const belief_state& bs, const char* context);
 void validate_hand_e_candidate(const belief_state& bs, const char* context);
 
-int trash_and_hand_s(const int card, const int hand[2], const int trash[8]) {
-  return trash[card - 1] + (hand[0] == card ? 1 : 0) + (hand[1] == card ? 1 : 0);
+int trash_and_hand_s(const Card card, const MaybeCard hand[2], const int trash[8]) {
+  return trash[card.index()] + (hand[0] == card ? 1 : 0) + (hand[1] == card ? 1 : 0);
 }
 
-int deck_or_hand_e(const int card, const int hand[2], const int trash[8]) {
+int deck_or_hand_e(const Card card, const MaybeCard hand[2], const int trash[8]) {
   CW_BUMP(deck_or_hand_e);
-  return max_num[card - 1] - trash_and_hand_s(card, hand, trash);
+  return max_num[card.index()] - trash_and_hand_s(card, hand, trash);
 }
 
-bool hand_e(const int card, const int hand[2], const int trash[8], const int open_flag_e, const int sol_flag_e[2], const bool lt5_flag_e, const bool not7_flag_e) {
+bool hand_e(const Card card, const MaybeCard hand[2], const int trash[8], const MaybeCard open_flag_e, const MaybeCard sol_flag_e[2], const bool lt5_flag_e, const bool not7_flag_e) {
   CW_BUMP(hand_e);
-  if(open_flag_e > 0) { //手札が確定している場合
-    if(open_flag_e == card) {
+  if(open_flag_e.has_value()) { //手札が確定している場合
+    if(open_flag_e.value() == card) {
       return true;
     } else {
       return false;
     }
-  } else if(sol_flag_e[0] > 1 && sol_flag_e[0] == card) {
+  } else if(sol_flag_e[0].has_value() && sol_flag_e[0].value() == card) {
     return false;
-  } else if(sol_flag_e[1] > 1 && sol_flag_e[1] == card) {
+  } else if(sol_flag_e[1].has_value() && sol_flag_e[1].value() == card) {
     return false;
-  } else if(lt5_flag_e && card >= 5) { //前のターンに7を出したときの,5以上
+  } else if(lt5_flag_e && card.value() >= 5) { //前のターンに7を出したときの,5以上
     return false;
-  } else if(not7_flag_e && card == 7) { //前のターンに5を出したときの,7
+  } else if(not7_flag_e && card == Card{7}) { //前のターンに5を出したときの,7
     return false;
   } else {
     return deck_or_hand_e(card, hand, trash) > 0;
   }
 }
 
-int belief_state::deck_or_hand_e(int card) const {
+int belief_state::deck_or_hand_e(Card card) const {
   return ::deck_or_hand_e(card, hand_s, trash);
 }
 
-bool belief_state::hand_e(int card) const {
+bool belief_state::hand_e(Card card) const {
   return ::hand_e(card, hand_s, trash, open_flag_e, sol_flag_e, lt5_flag_e, not7_flag_e);
 }
 
-bool belief_state::hand_s_est(int card) const {
-  int enemy_hand[2] = {open_e(), 0};
+bool belief_state::hand_s_est(Card card) const {
+  MaybeCard enemy_hand[2] = {open_e(), MaybeCard()};
   return ::hand_e(card, enemy_hand, trash, open_flag_s, sol_flag_s, lt5_flag_s, not7_flag_s);
 }
 
-int belief_state::open_e() const {
+MaybeCard belief_state::open_e() const {
   CW_BUMP(open_e);
-  int found = 0;
-  for(int card = 1; card <= 8; card++) {
+  MaybeCard found;
+  for(int c = 1; c <= 8; c++) {
+    Card card{c};
     if(hand_e(card)) {
-      if(found == 0) {
+      if(!found.has_value()) {
         found = card;
       } else {
-        return 0;
+        return MaybeCard();
       }
     }
   }
   return found;
 }
 
-int belief_state::open_s() const {
-  int found = 0;
-  for(int card = 1; card <= 8; card++) {
+MaybeCard belief_state::open_s() const {
+  MaybeCard found;
+  for(int c = 1; c <= 8; c++) {
+    Card card{c};
     if(hand_s_est(card)) {
-      if(found == 0) {
+      if(!found.has_value()) {
         found = card;
       } else {
-        return 0;
+        return MaybeCard();
       }
     }
   }
   return found;
 }
 
-bool belief_state::deck(int card, int open_card) const {
+bool belief_state::deck(Card card, MaybeCard open_card) const {
   CW_BUMP(deck);
   return deck_or_hand_e(card) > (card == open_card ? 1 : 0);
 }
 
-bool belief_state::deck(int card) const {
+bool belief_state::deck(Card card) const {
   return deck(card, open_e());
 }
 
-bool belief_state::have_s(int card) const {
+bool belief_state::have_s(Card card) const {
   return hand_s[0] == card || hand_s[1] == card;
 }
 
-int belief_state::other_hand_s(int card) const {
+MaybeCard belief_state::other_hand_s(Card card) const {
   if(hand_s[0] == card) {
     return hand_s[1];
   } else if(hand_s[1] == card) {
     return hand_s[0];
   } else {
-    return 0;
+    return MaybeCard();
   }
 }
 
 int belief_state::count_deck() const {
   CW_BUMP(count_deck);
   int count = 0;
-  for(int card = 1; card <= 8; card++) {
-    count += deck_or_hand_e(card);
+  for(int c = 1; c <= 8; c++) {
+    count += deck_or_hand_e(Card{c});
   }
   return count - 1;
 }
 
-int belief_state::hand_e_max() const {
+MaybeCard belief_state::hand_e_max() const {
   CW_BUMP(hand_e_max);
-  int max_card = 0;
-  for(int card = 1; card <= 8; card++) {
+  MaybeCard max_card;
+  for(int c = 1; c <= 8; c++) {
+    Card card{c};
     if(hand_e(card)) {
       max_card = card;
     }
@@ -220,12 +204,13 @@ int belief_state::hand_e_max() const {
   return max_card;
 }
 
-int belief_state::hand_e_min() const {
+MaybeCard belief_state::hand_e_min() const {
   CW_BUMP(hand_e_min);
-  int min_card = 0;
-  for(int card = 1; card <= 8; card++) {
+  MaybeCard min_card;
+  for(int c = 1; c <= 8; c++) {
+    Card card{c};
     if(hand_e(card)) {
-      if(min_card == 0 || card < min_card) {
+      if(!min_card.has_value()) {
         min_card = card;
       }
     }
@@ -233,12 +218,13 @@ int belief_state::hand_e_min() const {
   return min_card;
 }
 
-int belief_state::deck_or_hand_e_min() const {
+MaybeCard belief_state::deck_or_hand_e_min() const {
   CW_BUMP(deck_or_hand_e_min);
-  int min_card = 0;
-  for(int card = 1; card <= 8; card++) {
+  MaybeCard min_card;
+  for(int c = 1; c <= 8; c++) {
+    Card card{c};
     if(deck_or_hand_e(card) > 0) {
-      if(min_card == 0 || card < min_card) {
+      if(!min_card.has_value()) {
         min_card = card;
       }
     }
@@ -246,26 +232,26 @@ int belief_state::deck_or_hand_e_min() const {
   return min_card;
 }
 
-void belief_state::add_sol_s(int card) {
-  if(sol_flag_s[0] == 0) {
+void belief_state::add_sol_s(Card card) {
+  if(!sol_flag_s[0].has_value()) {
     sol_flag_s[0] = card;
   } else {
-    if(sol_flag_s[0] < card) {
+    if(sol_flag_s[0].value() < card) {
       sol_flag_s[1] = card;
-    } else if(sol_flag_s[0] > card) {
+    } else if(sol_flag_s[0].value() > card) {
       sol_flag_s[1] = sol_flag_s[0];
       sol_flag_s[0] = card;
     }
   }
 }
 
-void belief_state::add_sol_e(int card) {
-  if(sol_flag_e[0] == 0) {
+void belief_state::add_sol_e(Card card) {
+  if(!sol_flag_e[0].has_value()) {
     sol_flag_e[0] = card;
   } else {
-    if(sol_flag_e[0] < card) {
+    if(sol_flag_e[0].value() < card) {
       sol_flag_e[1] = card;
-    } else if(sol_flag_e[0] > card) {
+    } else if(sol_flag_e[0].value() > card) {
       sol_flag_e[1] = sol_flag_e[0];
       sol_flag_e[0] = card;
     }
@@ -276,49 +262,49 @@ void belief_state::reset_flag(bool is_self) {
   if(is_self) {
     not7_flag_s = false;
     lt5_flag_s = false;
-    open_flag_s = 0;
-    sol_flag_s[0] = 0;
-    sol_flag_s[1] = 0;
+    open_flag_s = MaybeCard();
+    sol_flag_s[0] = MaybeCard();
+    sol_flag_s[1] = MaybeCard();
   } else {
     not7_flag_e = false;
     lt5_flag_e = false;
-    open_flag_e = 0;
-    sol_flag_e[0] = 0;
-    sol_flag_e[1] = 0;
+    open_flag_e = MaybeCard();
+    sol_flag_e[0] = MaybeCard();
+    sol_flag_e[1] = MaybeCard();
   }
 }
 
-belief_state reset_flag_by_use(const belief_state& bs, bool to_self, int card) {
+belief_state reset_flag_by_use(const belief_state& bs, bool to_self, Card card) {
   CW_BUMP(reset_flag_by_use);
   struct belief_state next_bs = bs;
   if(to_self) {
-    if(bs.open_flag_s > 0 && bs.open_flag_s == card) {
-      next_bs.open_flag_s = 0;
+    if(bs.open_flag_s.has_value() && bs.open_flag_s.value() == card) {
+      next_bs.open_flag_s = MaybeCard();
     }
-    if(bs.sol_flag_s[1] != 0 && bs.sol_flag_s[1] != card) {
-      next_bs.sol_flag_s[1] = 0;
+    if(bs.sol_flag_s[1].has_value() && bs.sol_flag_s[1].value() != card) {
+      next_bs.sol_flag_s[1] = MaybeCard();
     }
-    if(bs.sol_flag_s[0] != 0 && bs.sol_flag_s[0] != card) {
+    if(bs.sol_flag_s[0].has_value() && bs.sol_flag_s[0].value() != card) {
       next_bs.sol_flag_s[0] = next_bs.sol_flag_s[1];
-      next_bs.sol_flag_s[1] = 0;
+      next_bs.sol_flag_s[1] = MaybeCard();
     }
-    if(bs.lt5_flag_s && card < 5) {
+    if(bs.lt5_flag_s && card.value() < 5) {
       next_bs.lt5_flag_s = false;
     }
     next_bs.not7_flag_s = false; //対象が7しかないため次のターンに7を出す出さないに関わらず推理がリセット
 
   } else {
-    if(bs.open_flag_e > 0 && bs.open_flag_e == card) {
-      next_bs.open_flag_e = 0;
+    if(bs.open_flag_e.has_value() && bs.open_flag_e.value() == card) {
+      next_bs.open_flag_e = MaybeCard();
     }
-    if(bs.sol_flag_e[1] != 0 && bs.sol_flag_e[1] != card) {
-      next_bs.sol_flag_e[1] = 0;
+    if(bs.sol_flag_e[1].has_value() && bs.sol_flag_e[1].value() != card) {
+      next_bs.sol_flag_e[1] = MaybeCard();
     }
-    if(bs.sol_flag_e[0] != 0 && bs.sol_flag_e[0] != card) {
+    if(bs.sol_flag_e[0].has_value() && bs.sol_flag_e[0].value() != card) {
       next_bs.sol_flag_e[0] = next_bs.sol_flag_e[1];
-      next_bs.sol_flag_e[1] = 0;
+      next_bs.sol_flag_e[1] = MaybeCard();
     }
-    if(bs.lt5_flag_e && card < 5) {
+    if(bs.lt5_flag_e && card.value() < 5) {
       next_bs.lt5_flag_e = false;
     }
     next_bs.not7_flag_e = false;
@@ -326,8 +312,8 @@ belief_state reset_flag_by_use(const belief_state& bs, bool to_self, int card) {
   return next_bs;
 }
 
-belief_state draw(const belief_state& bs, int draw_card) {
-  assert(bs.deck(draw_card) && bs.count_deck() > 0 && bs.hand_s[1] == 0);
+belief_state draw(const belief_state& bs, Card draw_card) {
+  assert(bs.deck(draw_card) && bs.count_deck() > 0 && !bs.hand_s[1].has_value());
   belief_state next_bs = bs;
   next_bs.hand_s[1] = draw_card;
   return next_bs;
@@ -337,18 +323,19 @@ void ef_wizard(const belief_state& bs, bool to_0p, ef_wizard_preds& out) {
   CW_BUMP(ef_wizard);
   if(bs.is_my_turn == false) { // use_abswinの最初でturnを切り替えるためturn==falseは0playerのターン
     if(to_0p) {
-      if(bs.hand_s[0] == 8) {
+      if(bs.hand_s[0] == Card{8}) {
         // return false;
         return;
       }
       // open_e() はこのループの中で不変 (bs は const 参照) なので括り出す。
-      const int open_card = bs.open_e();
-      for(int card = 1; card <= 8; card++) {
+      const MaybeCard open_card = bs.open_e();
+      for(int c = 1; c <= 8; c++) {
+        Card card{c};
         if(bs.deck(card, open_card)) {
           belief_state next_bs = bs;
           next_bs.is_wiz_choice = false;
           next_bs.is_my_turn = !bs.is_my_turn;
-          next_bs.trash[bs.hand_s[0] - 1] += 1; //手札捨てる
+          next_bs.trash[bs.hand_s[0].value().index()] += 1; //手札捨てる
           next_bs.hand_s[0] = card; //手札引く
           next_bs.reset_flag(true); //自分のフラグリセット
           CW_BUMP(ef_wizard_elem);
@@ -365,11 +352,12 @@ void ef_wizard(const belief_state& bs, bool to_0p, ef_wizard_preds& out) {
         return;
       }
       // validate_hand_e_candidate(bs, "wiz");
-      for(int card = 1; card <= 8; card++) {
-        if(bs.hand_e(card) && card != 8) {
+      for(int c = 1; c <= 8; c++) {
+        Card card{c};
+        if(bs.hand_e(card) && card != Card{8}) {
           belief_state next_bs = bs;
           next_bs.is_wiz_choice = false;
-          next_bs.trash[card - 1] += 1;
+          next_bs.trash[card.index()] += 1;
           next_bs.is_my_turn = !bs.is_my_turn;
           next_bs.reset_flag(false); //相手のフラグリセット
           CW_BUMP(ef_wizard_elem);
@@ -388,13 +376,14 @@ void ef_wizard(const belief_state& bs, bool to_0p, ef_wizard_preds& out) {
         return;
       }
       // open_e() はこのループの中で不変 (bs は const 参照) なので括り出す。
-      const int open_card = bs.open_e();
-      for(int card = 1; card <= 8; card++) {
+      const MaybeCard open_card = bs.open_e();
+      for(int c = 1; c <= 8; c++) {
+        Card card{c};
         if(bs.deck(card, open_card)) {
           belief_state next_bs = bs;
           next_bs.is_wiz_choice = false;
           next_bs.is_my_turn = !bs.is_my_turn;
-          next_bs.trash[bs.hand_s[0] - 1] += 1; //手札捨てる
+          next_bs.trash[bs.hand_s[0].value().index()] += 1; //手札捨てる
           next_bs.hand_s[0] = card; //手札引く
           next_bs.reset_flag(true); //自分のフラグリセット
           CW_BUMP(ef_wizard_elem);
@@ -403,16 +392,17 @@ void ef_wizard(const belief_state& bs, bool to_0p, ef_wizard_preds& out) {
       }
       return;
     } else {
-      if(bs.open_e() == 8) {
+      if(bs.open_e() == Card{8}) {
         return;
       }
       // validate_hand_e_candidate(bs, "wiz");
-      for(int card = 1; card <= 8; card++) {
-        if(bs.hand_e(card) && card != 8) {
+      for(int c = 1; c <= 8; c++) {
+        Card card{c};
+        if(bs.hand_e(card) && card != Card{8}) {
           belief_state next_bs = bs;
           next_bs.is_wiz_choice = false;
           next_bs.is_my_turn = !bs.is_my_turn;
-          next_bs.trash[card - 1] += 1;
+          next_bs.trash[card.index()] += 1;
           next_bs.reset_flag(false); //相手のフラグリセット
           CW_BUMP(ef_wizard_elem);
           out.push(next_bs);
@@ -427,20 +417,23 @@ void belief_state::print() const {
   // std::cout << "depth : " << depth << std::endl;
   std::cout << "barrier_s : " << barrier_s << " barrier_e : " << barrier_e << " is_my_turn : " << is_my_turn << std::endl;
   std::cout << "is_sol_choice : " << is_sol_choice << " is_wiz_choice : " << is_wiz_choice << " deck : " << count_deck() << std::endl;
-  std::cout << "open_flag_e : " << open_flag_e << " sol_flag_e : " << sol_flag_e[0] << " " << sol_flag_e[1] << " lt5_flag_e : " << lt5_flag_e << " not7_flag_e : " << not7_flag_e << std::endl;
-  std::cout << "open_flag_s : " << open_flag_s << " sol_flag_s : " << sol_flag_s[0] << " " << sol_flag_s[1] << " lt5_flag_s : " << lt5_flag_s << " not7_flag_s : " << not7_flag_s << std::endl;
-  std::cout << "hand_s : " << hand_s[0] << " " << hand_s[1] << " ";
+  std::cout << "open_flag_e : " << open_flag_e.raw() << " sol_flag_e : " << sol_flag_e[0].raw() << " " << sol_flag_e[1].raw() << " lt5_flag_e : " << lt5_flag_e << " not7_flag_e : " << not7_flag_e << std::endl;
+  std::cout << "open_flag_s : " << open_flag_s.raw() << " sol_flag_s : " << sol_flag_s[0].raw() << " " << sol_flag_s[1].raw() << " lt5_flag_s : " << lt5_flag_s << " not7_flag_s : " << not7_flag_s << std::endl;
+  std::cout << "hand_s : " << hand_s[0].raw() << " " << hand_s[1].raw() << " ";
   std::cout << "trash:";
-  for(int card = 1; card <= 8; card++) {
-    std::cout << trash[card - 1] << " ";
+  for(int c = 1; c <= 8; c++) {
+    Card card{c};
+    std::cout << trash[card.index()] << " ";
   }
   std::cout << " deck_or_hand_e : ";
-  for(int card = 1; card <= 8; card++) {
+  for(int c = 1; c <= 8; c++) {
+    Card card{c};
     std::cout << deck_or_hand_e(card) << " ";
   }
   std::cout << std::endl;
   std::cout << "hand_e: ";
-  for(int card = 1; card <= 8; card++) {
+  for(int c = 1; c <= 8; c++) {
+    Card card{c};
     std::cout << hand_e(card) << " ";
   }
   std::cout << std::endl
@@ -454,13 +447,14 @@ void belief_state::print() const {
 }
 
 void validate_hand_e_candidate(const belief_state& bs, const char* context) {
-  for(int card = 1; card <= 8; card++) {
+  for(int c = 1; c <= 8; c++) {
+    Card card{c};
     if(bs.hand_e(card)) return;
   }
   exit_with_print(bs, (std::string(context) + " : hand_e candidate is empty").c_str());
 }
 
-belief_state swap_player(const belief_state& bs, const int hand) {
+belief_state swap_player(const belief_state& bs, Card hand) {
   belief_state next_bs = bs;
   next_bs.is_my_turn = !bs.is_my_turn;
   std::swap(next_bs.barrier_s, next_bs.barrier_e);
@@ -469,7 +463,7 @@ belief_state swap_player(const belief_state& bs, const int hand) {
   std::swap(next_bs.lt5_flag_e, next_bs.lt5_flag_s);
   std::swap(next_bs.not7_flag_e, next_bs.not7_flag_s);
   next_bs.hand_s[0] = hand;
-  next_bs.hand_s[1] = 0;
+  next_bs.hand_s[1] = MaybeCard();
   return next_bs;
 }
 #endif

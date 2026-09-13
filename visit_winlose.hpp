@@ -78,10 +78,10 @@ struct winlose_visitor {
   void enter_play(node &n, int c1, int c2) {
     std::string key = n.org_his_p[n.turn].get_hash_value();
     belief_state bs(n.open, key, false);
-    auto res_0win = wc.use_win(bs, c1);
-    auto res_1win = wc.use_win(bs, c2);
-    auto res_0lose = lc.use_lose(bs, c1);
-    auto res_1lose = lc.use_lose(bs, c2);
+    auto res_0win = wc.use_win(bs, Card{c1});
+    auto res_1win = wc.use_win(bs, Card{c2});
+    auto res_0lose = lc.use_lose(bs, Card{c1});
+    auto res_1lose = lc.use_lose(bs, Card{c2});
     bool rm_bywin = res_0win.first || res_1win.first || cutting_w > 0;
     bool rm_bylose = res_0lose.first || res_1lose.first || cutting_l > 0;
     assert(0 <= res_0win.second && res_0win.second < 11);
@@ -126,7 +126,7 @@ struct winlose_visitor {
       soldier_key[n.depth] = key;
       soldier_bs[n.depth] = belief_state(n.open, key, false);
     }
-    auto res_win = wc.sol_win(soldier_bs[n.depth], i);
+    auto res_win = wc.sol_win(soldier_bs[n.depth], Card{i});
     bool rm_bywin = res_win.first || cutting_w > 0;
     bool rm_bylose = cutting_l > 0;
     assert(0 <= res_win.second && res_win.second < 11);

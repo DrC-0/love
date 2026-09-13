@@ -41,7 +41,7 @@ void watch_cfr(int open[3]) {
 
   for(map<string, infset>::iterator it = table_infset.begin(); it != table_infset.end(); ++it) {
     belief_state bs(open, it->first);
-    if(bs.hand_s[1] == 0) {
+    if(!bs.hand_s[1].has_value()) {
       cout << "0";
       if(!it->second.wizard)
         bs.print();
