@@ -19,7 +19,8 @@
 #             内部動作に近く、CW_BUMP は関数入口にあるのでファイル分割や
 #             引数の規約変更では値が動かないはず。統計が偶然一致する変更も
 #             ここで捕まる。
-#   win       標準出力の全文 + 生成される abs/abs<部分ゲーム>.bin の sha256
+#   win       標準出力の全文 + 生成される abs/wininf<部分ゲーム>.bin と
+#             abs/loseinf<部分ゲーム>.bin の sha256
 #           (bin は 46〜104MB あるので基準には sha256 だけ置く。不一致のときだけ
 #            実物を mismatch/ に残す)
 #
@@ -28,11 +29,11 @@
 #     うち 1 本も終わらない。win には打ち切りの手段が無いのでコストは固定。
 #   - 部分ゲーム 446 は外せない。557 は開示3枚が {5,5,7} で魔術師 2 枚が
 #     どちらも取り除かれるため、wiz_win / wiz_lose / ef_wizard を一度も通らない。
-#   - win は CWD 相対の abs/ に abs<部分ゲーム>.bin を書く。本物の abs/ を触らない
-#     よう、作業用ディレクトリに移動してから走らせる。以前は本物を退避して戻す方式に
-#     していたが、退避先が logs/regress/ 配下だったため、中断した実行の退避が残った
-#     まま logs/regress を消すと原本ごと失われた (実際に abs557.bin を失った)。
-#     触らないのが一番安全なので、退避はしない。
+#   - win は CWD 相対の abs/ に wininf<部分ゲーム>.bin と loseinf<部分ゲーム>.bin を
+#     書く。本物の abs/ を触らないよう、作業用ディレクトリに移動してから走らせる。
+#     以前は本物を退避して戻す方式にしていたが、退避先が logs/regress/ 配下だった
+#     ため、中断した実行の退避が残ったまま logs/regress を消すと原本ごと失われた
+#     (実際に abs557.bin を失った)。触らないのが一番安全なので、退避はしない。
 
 set -u
 
@@ -141,16 +142,19 @@ if [ "$scope" = full ]; then
 
         ( cd "$WIN_WORK" && "$win_bin" "$1" "$2" "$3" > "$outdir_abs/$name.out" 2>/dev/null )
 
-        binfile="$WIN_WORK/abs/abs$sg.bin"
-        if [ -e "$binfile" ]; then
-            sha256sum < "$binfile" > "$outdir/$name.abs.sha256"
-        else
-            echo "(abs bin was not produced)" > "$outdir/$name.abs.sha256"
-        fi
+        for kind in wininf loseinf; do
+            binfile="$WIN_WORK/abs/$kind$sg.bin"
+            if [ -e "$binfile" ]; then
+                sha256sum < "$binfile" > "$outdir/$name.$kind.sha256"
+            else
+                echo "($kind bin was not produced)" > "$outdir/$name.$kind.sha256"
+            fi
+        done
 
         if [ "$mode" = check ]; then
             compare "$name-stdout" "$outdir/$name.out" "$base_abs/$name.out"
-            compare "$name-absbin" "$outdir/$name.abs.sha256" "$base_abs/$name.abs.sha256"
+            compare "$name-wininf" "$outdir/$name.wininf.sha256" "$base_abs/$name.wininf.sha256"
+            compare "$name-loseinf" "$outdir/$name.loseinf.sha256" "$base_abs/$name.loseinf.sha256"
         else
             echo "saved    $name"
         fi

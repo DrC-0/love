@@ -14,7 +14,7 @@ COMMON_DEFS = -DNDEBUG -DUSE_SAME_MOVE -DUSE_GOOD_MOVE -DNUSE_BAD_MOVE
 COMMON_DEBUG_DEFS = -DUSE_SAME_MOVE -DUSE_GOOD_MOVE -DNUSE_BAD_MOVE
 .PHONY: clear clean all cppcheck
 
-all: cfr cfr0 cfrorg watch brrnd brorg test win comp end
+all: cfr cfr0 cfrorg watch brrnd brorg test win end
 main: cfr cfr0 cfrorg brorg win
 
 # --- CFR系ターゲット (-DCFR を使用) ---
@@ -46,17 +46,10 @@ brrnd: br_rnd.cpp all_elements.hpp infset_dfs_rnd.hpp $(COMMON_SRCS) $(COMMON_HD
 brorg: br.cpp all_elements.hpp infset_dfs.hpp $(COMMON_SRCS) $(COMMON_HDRS)
 	g++ -std=c++20 $(COMMON_WARN) -O2 $(COMMON_DEFS) -DBEST_RESPONSE -DALL_ELEMENTS_ORG $(COMMON_SRCS) br.cpp -o $@
 
-win: infset_iswin.cpp save_load_abshistory.hpp \
+win: infset_iswin.cpp save_load_winlose.hpp \
      belief_state.hpp belief_state_history.hpp belief_state_win.hpp belief_state_lose.hpp \
      $(COMMON_SRCS) $(COMMON_HDRS)
 	g++ -std=c++20 $(COMMON_WARN) -O2 $(COMMON_DEFS)  $(COMMON_SRCS) infset_iswin.cpp -o $@
-
-
-comp: compare_abscfr.cpp save_load_abshistory.hpp \
-      all_elements.hpp infset_dfs.hpp \
-      belief_state.hpp belief_state_history.hpp belief_state_win.hpp belief_state_lose.hpp \
-      $(COMMON_SRCS) $(COMMON_HDRS)
-	g++ -std=c++20 $(COMMON_WARN) -O2 $(COMMON_DEFS)  $(COMMON_SRCS) compare_abscfr.cpp -o $@
 
 # --- その他 ---
 test: test.cpp action_code.hpp action_code.cpp \

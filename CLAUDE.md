@@ -24,11 +24,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - 変更後は `make cfr cfr0 cfrorg brrnd brorg win` が通ることを確認する（実行までは不要）。
 - `watch` は現状リンクエラー（`watch_cfr.cpp` が `cfr_switch` を定義していない）。`make all` はここで止まるので、上記6ターゲットを個別に指定する。
 - 通常ビルドは `-DNDEBUG` なので `assert` は無効。assert を効かせたいときは `make cfrorgd`（出力名は `cfrorg` のまま）。
-- **既知の未修正の不具合**: `./comp 5 5 7` は実行のたびに結果が変わる（正常終了 /
-  abort / segfault）。`rnd_action.hpp` / `org_action.hpp` の `get_action` が範囲外を
-  検出しても `assert`（NDEBUG で無効）に任せて `wordlist[v]` を返しているため。
-  `373d4ba` から再現する。`comp 4 4 6` は影響を受けず決定的なので、回帰の比較には
-  446 だけを使う。処方箋は `Card` / `MaybeCard` と同じ「常時有効の検査」。
+- **やり残し**: `rnd_action.hpp` / `org_action.hpp` の `get_action` は範囲外を
+  `assert`（NDEBUG で無効）に任せて `wordlist[v]` を返す。常時有効の検査に
+  すべきだが未着手。
 - 実行時は部分ゲームの3枚を引数で渡す: `./cfrorg 5 5 7`、`./win 4 4 6`。
 - 自動テストは存在しない。`test.cpp` は gitignore 済みの手動デバッグ用スクラッチで、`main` を書き換えて使う。
 

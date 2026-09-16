@@ -13,7 +13,7 @@
 #include "rnd_action.hpp"
 #include "org_action_sequense.hpp"
 #include "loveletter.hpp"
-#include "save_load_abshistory.hpp"
+#include "save_load_winlose.hpp"
 #include "action_code.hpp"
 #include "run_mode.hpp"
 #include "analysis_points.hpp"
@@ -31,6 +31,8 @@ unsigned long int end_points = 0;
 
 std::set<std::string> only_history;
 std::map<std::string, bool> abs_history;
+std::vector<winlose_record> win_rows;
+std::vector<winlose_record> lose_rows;
 int win_cnt[11];
 int lose_cnt[11];
 int win_move[11];
@@ -56,6 +58,40 @@ void cnt_abs(int open[3], string history,
       hist_max = res_win.second;
       max_history = history;
     }
+
+    // 終局判定を最初に見る。is_win も先頭でこれを呼び、-1 以外なら他の分岐を
+    // 通らずに返す (belief_state_win.hpp:91-92)。
+    auto term = is_terminated_win(bs);
+    if(term.first != -1) {
+      // 終局判定は勝てるカードを 1 枚名指しする ({1,1} / {3,1} / {5,1}、
+      // または残り 1 枚のときの {hand_s[0], 0})。そのスロットだけを書く。
+      const int tslot =
+          (bs.hand_s[0].has_value() && bs.hand_s[0].value().value() == term.first) ? 0 : 1;
+      win_rows.push_back({history, true, false, (unsigned char)tslot});
+    } else if(!bs.hand_s[1].has_value() && bs.is_sol_choice) {
+      // rnd では兵士の宣言は自然手番なので、宣言ノードが情報集合表に入ることは
+      // 無いはず。通ったら行動を特定できないので、誤った行を書く代わりに落とす。
+      winlose_unreachable(history, "sol_choice");
+    } else if(!bs.hand_s[1].has_value() && bs.is_wiz_choice) {
+      // 0 = 自分 (to0p = true)、1 = 相手 (to0p = false)。
+      // is_lose の wiz 分岐 (belief_state_lose.hpp:44-48) と同じ対応。
+      if(wc.wiz_win(bs, true).first) win_rows.push_back({history, true, true, 0});
+      if(wc.wiz_win(bs, false).first) win_rows.push_back({history, true, true, 1});
+    } else if(bs.is_my_turn && bs.hand_s[1].has_value()) {
+      if(bs.hand_s[0] == bs.hand_s[1]) {
+        // is_win と同じく片方だけ評価する。行動は 1 つしかない。
+        if(wc.use_win(bs, bs.hand_s[0].value()).first)
+          win_rows.push_back({history, true, false, 0});
+      } else {
+        if(wc.use_win(bs, bs.hand_s[0].value()).first)
+          win_rows.push_back({history, true, false, 0});
+        if(wc.use_win(bs, bs.hand_s[1].value()).first)
+          win_rows.push_back({history, true, false, 1});
+      }
+    } else {
+      // is_win の分岐をすべてなぞった上で残るものは無いはず。
+      winlose_unreachable(history, "no_branch");
+    }
   } else win_move[0]++;
 
   auto lose_actions = lc.is_lose(bs);
@@ -63,6 +99,9 @@ void cnt_abs(int open[3], string history,
   int able_act = act_cnt - lose_actions.size();
   lose_move[0] += able_act;
   if(able_act == 1 && act_cnt > 1) only_history.insert(history);
+
+  bool pushed[2] = {false, false}; // 同じスロットを 2 回積まないための印
+
   for(const auto& lose_action : lose_actions) {
     lose_move[lose_action.second]++;
 
@@ -74,6 +113,26 @@ void cnt_abs(int open[3], string history,
 
       int firstp = char_to_action(action[0]) / 10;
       auto actions = able_actions(bs, lose_action.first, firstp == 2);
+
+      // able_actions が空なら今も abs_history に何も入らないので、行も書かない
+      if(!actions.empty()) {
+        bool is_choice_node;
+        int slot;
+        if(bs.is_wiz_choice) {
+          // lose_action.first は 0 = 自分 / 1 = 相手。カードではない
+          is_choice_node = true;
+          slot = lose_action.first;
+        } else {
+          is_choice_node = false;
+          slot = (bs.hand_s[0].has_value() && bs.hand_s[0].value().value() == lose_action.first)
+                     ? 0
+                     : 1;
+        }
+        if(!pushed[slot]) {
+          pushed[slot] = true;
+          lose_rows.push_back({history, false, is_choice_node, (unsigned char)slot});
+        }
+      }
 
       for(int act : actions) {
         string new_hist;
@@ -152,8 +211,9 @@ void infset_iswin(int open[3]) {
   cout << "infset size by win/lose:" << endl;
   for(int i = 0; i < 4; i++) cout << infset_cnt[i] << " ";
   cout << endl;
-  string filename = "abs" + to_string(open[0] * 100 + open[1] * 10 + open[2]) + ".bin";
-  save_bin_abs(filename, abs_history, only_history);
+  string subgame = to_string(open[0] * 100 + open[1] * 10 + open[2]);
+  save_bin_winlose("wininf" + subgame + ".bin", win_rows);
+  save_bin_winlose("loseinf" + subgame + ".bin", lose_rows);
 }
 
 int main(int, char* argv[]) {
