@@ -46,7 +46,8 @@ unsigned long int end_points = 0;
 #include "rnd_make_infset.hpp"
 #include "belief_state_history.hpp"
 
-// 「σ̄ が片方をほぼ捨てている」と見なす閾値。既定を 1e-2 にしてあるのは実測から。
+// 純粋戦略からどれだけ離れていてよいか。|slot - σ̄| をこの値と比べる。
+// 既定を 1e-2 にしてあるのは実測から。
 // 64 反復の σ̄ は 0 や 1 に張り付かず、分布の = 0 / <1e-6 / <1e-4 のバケットは
 // 446 / 557 とも 1 件も入らない。1e-6 にすると構造上 0 件しか出ない。
 // 4 つ目の引数で上書きできる。分布も併せて出るので、それを見て決め直せる。
@@ -97,22 +98,26 @@ bool check_choice_node(int open[3], const winlose_record& row) {
   return true;
 }
 
-// σ̄ の分布のバケット番号。0 / <1e-6 / <1e-4 / <1e-2 / <0.5 / >=0.5 の6つ。
+// 分布のバケット番号。0 と 1 の両端を同じ細かさで見られるよう対称にしてある。
+// 「ほぼ捨てている」(<1e-2) と「ほぼ決め打ち」(>=0.99) の両方を数えたいため。
+constexpr int BUCKET_N = 8;
 int bucket_index(double v) {
   if(v == 0.0) return 0;
-  if(v < 1e-6) return 1;
-  if(v < 1e-4) return 2;
-  if(v < 1e-2) return 3;
-  if(v < 0.5) return 4;
-  return 5;
+  if(v < 1e-2) return 1;
+  if(v < 0.1) return 2;
+  if(v < 0.5) return 3;
+  if(v < 0.9) return 4;
+  if(v < 0.99) return 5;
+  if(v < 1.0) return 6;
+  return 7;
 }
 
-const char* const bucket_label[6] = {"= 0", "<1e-6", "<1e-4", "<1e-2", "<0.5", ">=0.5"};
+const char* const bucket_label[BUCKET_N] = {"=0", "<1e-2", "<0.1", "<0.5", "<0.9", "<0.99", "<1", "=1"};
 
-void print_distribution(const char* title, const long long cnt[6]) {
-  cout << title << ": ";
-  for(int i = 0; i < 6; i++) {
-    cout << " " << bucket_label[i] << " : " << cnt[i];
+void print_distribution(const char* title, const long long cnt[BUCKET_N]) {
+  cout << title << ":";
+  for(int i = 0; i < BUCKET_N; i++) {
+    cout << "  " << bucket_label[i] << " " << cnt[i];
   }
   cout << endl;
 }
@@ -124,7 +129,7 @@ int main(int argc, char* argv[]) {
             " (abs/wininf<部分ゲーム>.bin と abs/loseinf<部分ゲーム>.bin を読む)。"
          << endl;
     cerr << "  反復回数は 64 固定。str<部分ゲーム>64.bin を読む。" << endl;
-    cerr << "  eps は「片方をほぼ捨てている」と見なす閾値。既定 1e-2。" << endl;
+    cerr << "  eps は純粋戦略からの許容乖離。|slot - σ̄| と比べる。既定 1e-2。" << endl;
     return 0;
   }
   if(argc == 5) eps = atof(argv[4]);
@@ -213,8 +218,8 @@ int main(int argc, char* argv[]) {
   // 両方のスロットに行がある履歴は除く。両方とも必敗なら σ̄ はどちらかに 0.5 以上を
   // 置かざるを得ず、両方とも必勝ならどちらに寄っていてもおかしくないので、
   // 入れると分布が読めなくなる。方向1 の除外と同じ規則。
-  long long win_dist[6] = {0, 0, 0, 0, 0, 0};
-  long long lose_dist[6] = {0, 0, 0, 0, 0, 0};
+  long long win_dist[BUCKET_N] = {};
+  long long lose_dist[BUCKET_N] = {};
   long long win_both = 0, lose_both = 0;
   for(const auto& row : valid_win_rows) {
     if(win_hist_count[row.history] > 1) {
@@ -232,7 +237,7 @@ int main(int argc, char* argv[]) {
   }
 
   cout << endl
-       << "--- σ̄ の分布 (記録のある行のスロット側。両スロットに行がある履歴は除く) ---" << endl;
+       << "--- P(スロットの行動) の分布 (両スロットに行がある履歴は除く) ---" << endl;
   print_distribution("必勝の行", win_dist);
   cout << "  (両スロットとも必勝で除いた行: " << win_both << ")" << endl;
   print_distribution("必敗の行", lose_dist);
@@ -250,12 +255,12 @@ int main(int argc, char* argv[]) {
     if(win_hist_count[row.history] > 1) continue; // 両方のスロットに行があるなら数えない
     double s = sigma_for_slot(row, sigma0);
     win_closest = std::min(win_closest, s);
-    if(s < eps) {
+    if(s < 1.0 - eps) {
       win_violation++;
       if((int)win_examples.size() < EXAMPLE_N) {
         ostringstream oss;
         oss << "  " << display_history(row.history) << " slot=" << (int)row.slot
-            << " choice=" << (row.is_choice_node ? 1 : 0) << " σ̄=" << s;
+            << " choice=" << (row.is_choice_node ? 1 : 0) << " P(スロット)=" << s;
         win_examples.push_back(oss.str());
       }
     }
@@ -264,12 +269,12 @@ int main(int argc, char* argv[]) {
     if(lose_hist_count[row.history] > 1) continue; // どちらも負けるので数えない
     double s = sigma_for_slot(row, sigma0);
     lose_closest = std::max(lose_closest, s);
-    if(s > 1.0 - eps) {
+    if(s > eps) {
       lose_violation++;
       if((int)lose_examples.size() < EXAMPLE_N) {
         ostringstream oss;
         oss << "  " << display_history(row.history) << " slot=" << (int)row.slot
-            << " choice=" << (row.is_choice_node ? 1 : 0) << " σ̄=" << s;
+            << " choice=" << (row.is_choice_node ? 1 : 0) << " P(スロット)=" << s;
         lose_examples.push_back(oss.str());
       }
     }
@@ -277,12 +282,12 @@ int main(int argc, char* argv[]) {
 
   cout << endl
        << "--- 方向1: 記録と σ̄ が食い違う ---" << endl;
-  cout << "必勝なのに σ̄ < EPS      : " << win_violation;
-  if(win_violation == 0) cout << "   (検出には EPS > " << win_closest << " が要る)";
+  cout << "必勝なのにスロットに寄り切っていない (P < 1-EPS) : " << win_violation;
+  if(win_violation == 0) cout << "   (検出には EPS < " << 1.0 - win_closest << " が要る)";
   cout << endl;
   for(const auto& line : win_examples) cout << line << endl;
-  cout << "必敗なのに σ̄ > 1 - EPS  : " << lose_violation;
-  if(lose_violation == 0) cout << "   (検出には EPS > " << 1.0 - lose_closest << " が要る)";
+  cout << "必敗なのにスロットを捨て切っていない (P > EPS)   : " << lose_violation;
+  if(lose_violation == 0) cout << "   (検出には EPS < " << lose_closest << " が要る)";
   cout << endl;
   for(const auto& line : lose_examples) cout << line << endl;
 
@@ -291,7 +296,7 @@ int main(int argc, char* argv[]) {
   // 片方だけ、0.5 なら五分。方向1 と同じバケットに入れる。
   long long no_record_total = 0;
   long long no_record_extreme = 0;
-  long long no_record_dist[6] = {0, 0, 0, 0, 0, 0};
+  long long no_record_dist[BUCKET_N] = {};
   double no_record_closest = 0.5; // 最も偏っていた min(σ̄, 1-σ̄)
   vector<string> no_record_examples;
   for(const auto& kv : sigma0) {
@@ -306,7 +311,7 @@ int main(int argc, char* argv[]) {
       no_record_extreme++;
       if((int)no_record_examples.size() < EXAMPLE_N) {
         ostringstream oss;
-        oss << "  " << display_history(history) << " σ̄=" << p;
+        oss << "  " << display_history(history) << " P(行動0)=" << p;
         no_record_examples.push_back(oss.str());
       }
     }
@@ -315,11 +320,11 @@ int main(int argc, char* argv[]) {
   cout << endl
        << "--- 方向2: σ̄ が偏っているのに記録が無い ---" << endl;
   cout << "記録の無い情報集合            : " << no_record_total << endl;
-  cout << "  うち σ̄ < EPS または > 1-EPS : " << no_record_extreme;
+  cout << "  うち偏りが EPS 未満           : " << no_record_extreme;
   if(no_record_extreme == 0) cout << "   (検出には EPS > " << no_record_closest << " が要る)";
   cout << endl;
   for(const auto& line : no_record_examples) cout << line << endl;
-  print_distribution("  偏りの分布 min(σ̄, 1-σ̄)", no_record_dist);
+  print_distribution("  偏りの分布 min(P(行動0), P(行動1))", no_record_dist);
 
   return 0;
 }
