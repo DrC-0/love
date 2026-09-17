@@ -17,14 +17,14 @@
 
 struct count_work_counters {
   // 判定関数
-  unsigned long long is_terminated_win = 0;
+  unsigned long long check_terminal = 0;
   unsigned long long enemy_turn_win = 0;
   unsigned long long draw_win = 0;
-  unsigned long long sol_win = 0;
+  unsigned long long soldier_win = 0;
   unsigned long long use_win = 0;
   unsigned long long use_lose = 0;
-  unsigned long long wiz_win = 0;
-  unsigned long long wiz_lose = 0;
+  unsigned long long wizard_win = 0;
+  unsigned long long wizard_lose = 0;
   unsigned long long is_lose = 0;
   unsigned long long ef_wizard = 0;
   unsigned long long ef_wizard_elem = 0; // ef_wizard が返した要素の総数
@@ -45,15 +45,15 @@ struct count_work_counters {
 
   ~count_work_counters() {
     std::fprintf(stderr,
-                 "COUNT_WORK is_terminated_win=%llu enemy_turn_win=%llu draw_win=%llu "
-                 "sol_win=%llu use_win=%llu use_lose=%llu\n"
-                 "COUNT_WORK wiz_win=%llu wiz_lose=%llu is_lose=%llu ef_wizard=%llu "
+                 "COUNT_WORK check_terminal=%llu enemy_turn_win=%llu draw_win=%llu "
+                 "soldier_win=%llu use_win=%llu use_lose=%llu\n"
+                 "COUNT_WORK wizard_win=%llu wizard_lose=%llu is_lose=%llu ef_wizard=%llu "
                  "ef_wizard_elem=%llu reset_flag_by_use=%llu belief_state_from_history=%llu\n"
                  "COUNT_WORK open_e=%llu count_deck=%llu deck=%llu hand_e_max=%llu "
                  "hand_e_min=%llu deck_or_hand_e_min=%llu\n"
                  "COUNT_WORK hand_e=%llu deck_or_hand_e=%llu\n",
-                 is_terminated_win, enemy_turn_win, draw_win, sol_win, use_win, use_lose,
-                 wiz_win, wiz_lose, is_lose, ef_wizard, ef_wizard_elem, reset_flag_by_use,
+                 check_terminal, enemy_turn_win, draw_win, soldier_win, use_win, use_lose,
+                 wizard_win, wizard_lose, is_lose, ef_wizard, ef_wizard_elem, reset_flag_by_use,
                  belief_state_from_history,
                  open_e, count_deck, deck, hand_e_max, hand_e_min, deck_or_hand_e_min,
                  hand_e, deck_or_hand_e);

@@ -141,6 +141,13 @@ belief_state::belief_state(int open[3], std::string history, bool rnd = true)
       is_my_turn = !is_my_turn;
     }
   }
+  // 履歴が選択待ちノードで終わっているなら、その選択はカードを出した本人の
+  // 意思決定なので手番はまだ渡っていない。ループ中の反転を戻す。
+  // ここで戻さないと、履歴から復元した belief_state と use_win 経由で作った
+  // belief_state で is_my_turn が逆になり、ef_wizard が別の枝に落ちる。
+  // 途中で立つぶんは次の行動の先頭で false に戻るので、末尾だけを見ればよい
+  // (rnd は兵士の宣言を抽象化しているため、途中で is_sol_choice が立つ)。
+  if(is_sol_choice || is_wiz_choice) is_my_turn = true;
 }
 
 unsigned char action2char(int x, bool rnd);

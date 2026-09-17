@@ -321,7 +321,9 @@ belief_state draw(const belief_state& bs, Card draw_card) {
 
 void ef_wizard(const belief_state& bs, bool to_0p, ef_wizard_preds& out) {
   CW_BUMP(ef_wizard);
-  if(bs.is_my_turn == false) { // use_abswinの最初でturnを切り替えるためturn==falseは0playerのターン
+  // is_my_turn は「いま手番を持っているのが視点プレイヤー (_s) か」。
+  // 真なら自分が魔術師を使い、偽なら相手が使う。
+  if(bs.is_my_turn) {
     if(to_0p) {
       if(bs.hand_s[0] == Card{8}) {
         // return false;
@@ -334,7 +336,7 @@ void ef_wizard(const belief_state& bs, bool to_0p, ef_wizard_preds& out) {
         if(bs.deck(card, open_card)) {
           belief_state next_bs = bs;
           next_bs.is_wiz_choice = false;
-          next_bs.is_my_turn = !bs.is_my_turn;
+          next_bs.is_my_turn = false; // 自分が使ったので相手の手番
           next_bs.trash[bs.hand_s[0].value().index()] += 1; //手札捨てる
           next_bs.hand_s[0] = card; //手札引く
           next_bs.reset_flag(true); //自分のフラグリセット
@@ -345,8 +347,11 @@ void ef_wizard(const belief_state& bs, bool to_0p, ef_wizard_preds& out) {
       return;
     } else {
       if(bs.barrier_e) {
+        // 僧侶(4)で守られているので何も起きない。何も起きなくても手番は渡る
+        // ので、他の候補と同じく手番を渡す。
         belief_state next_bs = bs;
         next_bs.is_wiz_choice = false;
+        next_bs.is_my_turn = false; // 自分が使ったので相手の手番
         CW_BUMP(ef_wizard_elem);
         out.push(next_bs);
         return;
@@ -358,7 +363,7 @@ void ef_wizard(const belief_state& bs, bool to_0p, ef_wizard_preds& out) {
           belief_state next_bs = bs;
           next_bs.is_wiz_choice = false;
           next_bs.trash[card.index()] += 1;
-          next_bs.is_my_turn = !bs.is_my_turn;
+          next_bs.is_my_turn = false; // 自分が使ったので相手の手番
           next_bs.reset_flag(false); //相手のフラグリセット
           CW_BUMP(ef_wizard_elem);
           out.push(next_bs);
@@ -366,15 +371,21 @@ void ef_wizard(const belief_state& bs, bool to_0p, ef_wizard_preds& out) {
       }
       return;
     }
-  } else { // is_my_turn == true
+  } else { // is_my_turn == false: 相手が魔術師を使う
     if(to_0p) {
       if(bs.barrier_s) {
+        // barrier_e 側と同じ理由で手番を渡す。
         belief_state next_bs = bs;
         next_bs.is_wiz_choice = false;
+        next_bs.is_my_turn = true; // 相手が使ったので自分の手番
         CW_BUMP(ef_wizard_elem);
         out.push(next_bs);
         return;
       }
+      // 守られておらず姫(8)を持っているなら、捨てさせられて自分の負け。
+      // 魔術師で姫を捨てたプレイヤーが負けるルール。候補を返さないことで
+      // 呼び出し側の AND ノードが偽になる。
+      if(bs.hand_s[0] == Card{8}) return;
       // open_e() はこのループの中で不変 (bs は const 参照) なので括り出す。
       const MaybeCard open_card = bs.open_e();
       for(int c = 1; c <= 8; c++) {
@@ -382,7 +393,7 @@ void ef_wizard(const belief_state& bs, bool to_0p, ef_wizard_preds& out) {
         if(bs.deck(card, open_card)) {
           belief_state next_bs = bs;
           next_bs.is_wiz_choice = false;
-          next_bs.is_my_turn = !bs.is_my_turn;
+          next_bs.is_my_turn = true; // 相手が使ったので自分の手番
           next_bs.trash[bs.hand_s[0].value().index()] += 1; //手札捨てる
           next_bs.hand_s[0] = card; //手札引く
           next_bs.reset_flag(true); //自分のフラグリセット
@@ -401,7 +412,7 @@ void ef_wizard(const belief_state& bs, bool to_0p, ef_wizard_preds& out) {
         if(bs.hand_e(card) && card != Card{8}) {
           belief_state next_bs = bs;
           next_bs.is_wiz_choice = false;
-          next_bs.is_my_turn = !bs.is_my_turn;
+          next_bs.is_my_turn = true; // 相手が使ったので自分の手番
           next_bs.trash[card.index()] += 1;
           next_bs.reset_flag(false); //相手のフラグリセット
           CW_BUMP(ef_wizard_elem);
@@ -456,6 +467,8 @@ void validate_hand_e_candidate(const belief_state& bs, const char* context) {
 
 belief_state swap_player(const belief_state& bs, Card hand) {
   belief_state next_bs = bs;
+  // 視点そのものを入れ替えるので、手番の持ち主も入れ替わる。
+  // ここは「誰が行動したか」ではなく視点の反転なので定数にはできない。
   next_bs.is_my_turn = !bs.is_my_turn;
   std::swap(next_bs.barrier_s, next_bs.barrier_e);
   std::swap(next_bs.open_flag_e, next_bs.open_flag_s);

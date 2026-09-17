@@ -52,9 +52,10 @@ struct winlose_visitor {
 
   // org_ds_play case 5（魔術師）用
   struct wizard_frame {
-    bool win[2]; // {res_0win.first, res_1win.first}
-    bool lose[2]; // {res_0lose.first, res_1lose.first}
-    bool is_zero;
+    // 添字 0 = 相手に使う (to_self == false)、1 = 自分に使う (to_self == true)。
+    // enter_wizard が wizard_win(bs, false) を [0] に入れるのと合わせてある。
+    bool win[2];
+    bool lose[2];
   };
   wizard_frame wf[MAX_DEPTH]{};
 
@@ -78,33 +79,36 @@ struct winlose_visitor {
   void enter_play(node &n, int c1, int c2) {
     std::string key = n.org_his_p[n.turn].get_hash_value();
     belief_state bs(n.open, key, false);
-    auto res_0win = wc.use_win(bs, Card{c1});
-    auto res_1win = wc.use_win(bs, Card{c2});
+    // 行動ごとの必勝は is_win がまとめて返す。use_win を直に呼ぶと終端局面の
+    // 扱いを自前で書くことになるので呼ばない。
+    const win_decision dwin = wc.is_win(bs);
+    const win_result res_0win{dwin.wins_with(c1 - 1), dwin.turns[c1 - 1]};
+    const win_result res_1win{dwin.wins_with(c2 - 1), dwin.turns[c2 - 1]};
     auto res_0lose = lc.use_lose(bs, Card{c1});
     auto res_1lose = lc.use_lose(bs, Card{c2});
-    bool rm_bywin = res_0win.first || res_1win.first || cutting_w > 0;
-    bool rm_bylose = res_0lose.first || res_1lose.first || cutting_l > 0;
-    assert(0 <= res_0win.second && res_0win.second < 11);
-    assert(0 <= res_1win.second && res_1win.second < 11);
+    bool rm_bywin = res_0win.is_win || res_1win.is_win || cutting_w > 0;
+    bool rm_bylose = res_0lose.is_lose || res_1lose.is_lose || cutting_l > 0;
+    assert(0 <= res_0win.turns && res_0win.turns < 11);
+    assert(0 <= res_1win.turns && res_1win.turns < 11);
 
     decision_points[0]++;
     if(!rm_bywin) decision_points[1]++;
     if(!rm_bylose) decision_points[2]++;
     if(!rm_bywin && !rm_bylose) decision_points[3]++;
-    if(res_0win.first && res_1win.first) {
-      if(res_0win.second <= res_1win.second) win_points[res_0win.second]++;
-      else win_points[res_1win.second]++;
-    } else if(res_0win.first) win_points[res_0win.second]++;
-    else if(res_1win.first) win_points[res_1win.second]++;
+    if(res_0win.is_win && res_1win.is_win) {
+      if(res_0win.turns <= res_1win.turns) win_points[res_0win.turns]++;
+      else win_points[res_1win.turns]++;
+    } else if(res_0win.is_win) win_points[res_0win.turns]++;
+    else if(res_1win.is_win) win_points[res_1win.turns]++;
     else win_points[0]++;
-    if(res_0lose.first && res_1lose.first) {
-      if(res_0lose.second >= res_1lose.second) lose_points[res_0lose.second]++;
-      else lose_points[res_1lose.second]++;
-    } else if(res_0lose.first) lose_points[res_0lose.second]++;
-    else if(res_1lose.first) lose_points[res_1lose.second]++;
+    if(res_0lose.is_lose && res_1lose.is_lose) {
+      if(res_0lose.turns >= res_1lose.turns) lose_points[res_0lose.turns]++;
+      else lose_points[res_1lose.turns]++;
+    } else if(res_0lose.is_lose) lose_points[res_0lose.turns]++;
+    else if(res_1lose.is_lose) lose_points[res_1lose.turns]++;
     else lose_points[0]++;
 
-    pf[n.depth] = {res_0win.first || res_1win.first, res_0lose.first, res_1lose.first};
+    pf[n.depth] = {res_0win.is_win || res_1win.is_win, res_0lose.is_lose, res_1lose.is_lose};
     cutting_w += pf[n.depth].w_inc;
     cutting_l += pf[n.depth].l0;
   }
@@ -126,20 +130,20 @@ struct winlose_visitor {
       soldier_key[n.depth] = key;
       soldier_bs[n.depth] = belief_state(n.open, key, false);
     }
-    auto res_win = wc.sol_win(soldier_bs[n.depth], Card{i});
-    bool rm_bywin = res_win.first || cutting_w > 0;
+    auto res_win = wc.soldier_win(soldier_bs[n.depth], Card{i});
+    bool rm_bywin = res_win.is_win || cutting_w > 0;
     bool rm_bylose = cutting_l > 0;
-    assert(0 <= res_win.second && res_win.second < 11);
+    assert(0 <= res_win.turns && res_win.turns < 11);
     decision_points[0]++;
     if(!rm_bywin) decision_points[1]++;
     if(!rm_bylose) decision_points[2]++;
     if(!rm_bywin && !rm_bylose) decision_points[3]++;
-    if(res_win.first) win_points[res_win.second]++;
+    if(res_win.is_win) win_points[res_win.turns]++;
     else win_points[0]++;
     // 兵士の宣言ノードには必敗判定が無いので、全件が「該当なし」= index 0 になる。
     // これを数えないと lose_points の合計が decision_points[0] と一致しない。
     lose_points[0]++;
-    soldier_inc[n.depth] = res_win.first;
+    soldier_inc[n.depth] = res_win.is_win;
   }
   void enter_soldier_branch(const node &n) {
     cutting_w += soldier_inc[n.depth];
@@ -152,50 +156,51 @@ struct winlose_visitor {
   void enter_wizard(node &n) {
     std::string key = n.org_his_p[n.turn].get_hash_value();
     belief_state bs(n.open, key, false);
-    auto res_0win = wc.wiz_win(bs, 0);
-    auto res_1win = wc.wiz_win(bs, 1);
-    auto res_0lose = lc.wiz_lose(bs, 0);
-    auto res_1lose = lc.wiz_lose(bs, 1);
-    bool rm_bywin = res_0win.first || res_1win.first || cutting_w > 0;
-    bool rm_bylose = res_0lose.first || res_1lose.first || cutting_l > 0;
-    assert(0 <= res_0win.second && res_0win.second < 11);
-    assert(0 <= res_1win.second && res_1win.second < 11);
+    // 改名前の wc.wiz_win(bs, 0) は「相手」、wc.wiz_win(bs, 1) は「自分」だった。
+    // res_0win が相手、res_1win が自分という順序 (is_lose の 0/1 とは逆)。
+    // enter_wizard の集約は res_0* / res_1* について対称 (真偽は OR、深さは
+    // min/max) なので入れ替えても出力は変わらないが、0/1 の規約整理は
+    // is_lose の多目的コードとまとめて別の変更で行うため、ここでは変えない。
+    auto res_0win = wc.wizard_win(bs, false);
+    auto res_1win = wc.wizard_win(bs, true);
+    auto res_0lose = lc.wizard_lose(bs, false);
+    auto res_1lose = lc.wizard_lose(bs, true);
+    bool rm_bywin = res_0win.is_win || res_1win.is_win || cutting_w > 0;
+    bool rm_bylose = res_0lose.is_lose || res_1lose.is_lose || cutting_l > 0;
+    assert(0 <= res_0win.turns && res_0win.turns < 11);
+    assert(0 <= res_1win.turns && res_1win.turns < 11);
 
     decision_points[0]++;
     if(!rm_bywin) decision_points[1]++;
     if(!rm_bylose) decision_points[2]++;
     if(!rm_bywin && !rm_bylose) decision_points[3]++;
-    if(res_0win.first && res_1win.first) {
-      if(res_0win.second <= res_1win.second) win_points[res_0win.second]++;
-      else win_points[res_1win.second]++;
-    } else if(res_0win.first) win_points[res_0win.second]++;
-    else if(res_1win.first) win_points[res_1win.second]++;
+    if(res_0win.is_win && res_1win.is_win) {
+      if(res_0win.turns <= res_1win.turns) win_points[res_0win.turns]++;
+      else win_points[res_1win.turns]++;
+    } else if(res_0win.is_win) win_points[res_0win.turns]++;
+    else if(res_1win.is_win) win_points[res_1win.turns]++;
     else win_points[0]++;
-    if(res_0lose.first && res_1lose.first) {
-      if(res_0lose.second >= res_1lose.second) lose_points[res_0lose.second]++;
-      else lose_points[res_1lose.second]++;
-    } else if(res_0lose.first) lose_points[res_0lose.second]++;
-    else if(res_1lose.first) lose_points[res_1lose.second]++;
+    if(res_0lose.is_lose && res_1lose.is_lose) {
+      if(res_0lose.turns >= res_1lose.turns) lose_points[res_0lose.turns]++;
+      else lose_points[res_1lose.turns]++;
+    } else if(res_0lose.is_lose) lose_points[res_0lose.turns]++;
+    else if(res_1lose.is_lose) lose_points[res_1lose.turns]++;
     else lose_points[0]++;
 
-    std::string action = oph.get_action((unsigned char)key[0]);
-    bool is_zero = char_to_action(action[0]) / 10 == 0;
-    wf[n.depth] = {{res_0win.first, res_1win.first},
-                   {res_0lose.first, res_1lose.first},
-                   is_zero};
+    wf[n.depth] = {{res_0win.is_win, res_1win.is_win},
+                   {res_0lose.is_lose, res_1lose.is_lose}};
   }
-  // to_self == false: 相手に使う分岐 (do_action 6)
-  // to_self == true : 自分に使う分岐 (do_action 7)
-  static int wizard_index(bool to_self, bool is_zero) {
-    return (to_self == is_zero) ? 0 : 1;
-  }
+  // to_self == false: 相手に使う分岐 (do_action 6) = 添字 0
+  // to_self == true : 自分に使う分岐 (do_action 7) = 添字 1
+  // to_self も bs も「手を打つプレイヤーから見た自分/相手」なので、
+  // ここに絶対的なプレイヤ番号を持ち込む必要は無い。
   void enter_wizard_branch(const node &n, bool to_self) {
-    const int k = wizard_index(to_self, wf[n.depth].is_zero);
+    const int k = to_self ? 1 : 0;
     cutting_w += wf[n.depth].win[k];
     cutting_l += wf[n.depth].lose[k];
   }
   void leave_wizard_branch(const node &n, bool to_self) {
-    const int k = wizard_index(to_self, wf[n.depth].is_zero);
+    const int k = to_self ? 1 : 0;
     cutting_w -= wf[n.depth].win[k];
     cutting_l -= wf[n.depth].lose[k];
   }

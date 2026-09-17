@@ -48,44 +48,52 @@ int hist_max = 0;
 void cnt_abs(int open[3], string history,
              belief_state_win_checker& wc, belief_state_lose_checker& lc) {
   belief_state bs(open, history);
-  auto res_win = wc.is_win(bs);
+  const win_decision res_win = wc.is_win(bs);
 
-  if(res_win.first > 0) {
-    win_move[res_win.second]++;
+  if(res_win.has_win()) {
+    // 「どれか勝てるか」は has_win()、「最短の手数」は立っているビットの turns
+    // の最小値 (belief_state_win.hpp の is_win のコメント参照)。has_win() が真
+    // なので少なくとも1本は立っており、turns は必ず初期値の 0 から更新される。
+    int turns = 0;
+    bool turns_set = false;
+    for(int a = 0; a < 8; a++) {
+      if(res_win.wins_with(a)) {
+        turns = turns_set ? std::min(turns, (int)res_win.turns[a]) : (int)res_win.turns[a];
+        turns_set = true;
+      }
+    }
+    win_move[turns]++;
     abs_history.insert({history, true});
 
-    if(res_win.second > hist_max) {
-      hist_max = res_win.second;
+    if(turns > hist_max) {
+      hist_max = turns;
       max_history = history;
     }
 
-    // 終局判定を最初に見る。is_win も先頭でこれを呼び、-1 以外なら他の分岐を
-    // 通らずに返す (belief_state_win.hpp:91-92)。
-    auto term = is_terminated_win(bs);
-    if(term.first != -1) {
-      // 終局判定は勝てるカードを 1 枚名指しする ({1,1} / {3,1} / {5,1}、
-      // または残り 1 枚のときの {hand_s[0], 0})。そのスロットだけを書く。
-      const int tslot =
-          (bs.hand_s[0].has_value() && bs.hand_s[0].value().value() == term.first) ? 0 : 1;
-      win_rows.push_back({history, true, false, (unsigned char)tslot});
+    // 終局判定を最初に見る。is_win も先頭でこれを呼び、決着していれば他の分岐を
+    // 通らずに返す (belief_state_win.hpp の is_win_uncached)。
+    // ここに来るのは has_win() が真のときだけなので、決着していれば won。
+    // won は山札が尽きての勝ちで手札は1枚なので、行動はスロット0のカードしかない。
+    if(check_terminal(bs) == terminal_kind::won) {
+      win_rows.push_back({history, true, false, 0});
     } else if(!bs.hand_s[1].has_value() && bs.is_sol_choice) {
       // rnd では兵士の宣言は自然手番なので、宣言ノードが情報集合表に入ることは
       // 無いはず。通ったら行動を特定できないので、誤った行を書く代わりに落とす。
       winlose_unreachable(history, "sol_choice");
     } else if(!bs.hand_s[1].has_value() && bs.is_wiz_choice) {
-      // 0 = 自分 (to0p = true)、1 = 相手 (to0p = false)。
+      // 0 = 自分 (true)、1 = 相手 (false)。
       // is_lose の wiz 分岐 (belief_state_lose.hpp:44-48) と同じ対応。
-      if(wc.wiz_win(bs, true).first) win_rows.push_back({history, true, true, 0});
-      if(wc.wiz_win(bs, false).first) win_rows.push_back({history, true, true, 1});
+      if(wc.wizard_win(bs, true).is_win) win_rows.push_back({history, true, true, 0});
+      if(wc.wizard_win(bs, false).is_win) win_rows.push_back({history, true, true, 1});
     } else if(bs.is_my_turn && bs.hand_s[1].has_value()) {
       if(bs.hand_s[0] == bs.hand_s[1]) {
         // is_win と同じく片方だけ評価する。行動は 1 つしかない。
-        if(wc.use_win(bs, bs.hand_s[0].value()).first)
+        if(wc.use_win(bs, bs.hand_s[0].value()).is_win)
           win_rows.push_back({history, true, false, 0});
       } else {
-        if(wc.use_win(bs, bs.hand_s[0].value()).first)
+        if(wc.use_win(bs, bs.hand_s[0].value()).is_win)
           win_rows.push_back({history, true, false, 0});
-        if(wc.use_win(bs, bs.hand_s[1].value()).first)
+        if(wc.use_win(bs, bs.hand_s[1].value()).is_win)
           win_rows.push_back({history, true, false, 1});
       }
     } else {
