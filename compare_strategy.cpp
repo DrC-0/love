@@ -241,10 +241,15 @@ int main(int argc, char* argv[]) {
   // --- 方向1: 記録のある (履歴, スロット) の σ̄ が期待と食い違う ---
   long long win_violation = 0;
   long long lose_violation = 0;
+  // 「この閾値では何も拾えない」のか「本当に一致している」のかを区別するため、
+  // 検出しうる最小の閾値 (= 見た中で最も期待から外れていた値) を控えておく。
+  double win_closest = 1.0; // 必勝の行で最も小さかった σ̄
+  double lose_closest = 0.0; // 必敗の行で最も大きかった σ̄
   vector<string> win_examples, lose_examples;
   for(const auto& row : valid_win_rows) {
     if(win_hist_count[row.history] > 1) continue; // 両方のスロットに行があるなら数えない
     double s = sigma_for_slot(row, sigma0);
+    win_closest = std::min(win_closest, s);
     if(s < eps) {
       win_violation++;
       if((int)win_examples.size() < EXAMPLE_N) {
@@ -258,6 +263,7 @@ int main(int argc, char* argv[]) {
   for(const auto& row : valid_lose_rows) {
     if(lose_hist_count[row.history] > 1) continue; // どちらも負けるので数えない
     double s = sigma_for_slot(row, sigma0);
+    lose_closest = std::max(lose_closest, s);
     if(s > 1.0 - eps) {
       lose_violation++;
       if((int)lose_examples.size() < EXAMPLE_N) {
@@ -271,9 +277,13 @@ int main(int argc, char* argv[]) {
 
   cout << endl
        << "--- 方向1: 記録と σ̄ が食い違う ---" << endl;
-  cout << "必勝なのに σ̄ < EPS      : " << win_violation << endl;
+  cout << "必勝なのに σ̄ < EPS      : " << win_violation;
+  if(win_violation == 0) cout << "   (検出には EPS > " << win_closest << " が要る)";
+  cout << endl;
   for(const auto& line : win_examples) cout << line << endl;
-  cout << "必敗なのに σ̄ > 1 - EPS  : " << lose_violation << endl;
+  cout << "必敗なのに σ̄ > 1 - EPS  : " << lose_violation;
+  if(lose_violation == 0) cout << "   (検出には EPS > " << 1.0 - lose_closest << " が要る)";
+  cout << endl;
   for(const auto& line : lose_examples) cout << line << endl;
 
   // --- 方向2: σ̄ が偏っているのに記録が無い ---
@@ -282,13 +292,16 @@ int main(int argc, char* argv[]) {
   long long no_record_total = 0;
   long long no_record_extreme = 0;
   long long no_record_dist[6] = {0, 0, 0, 0, 0, 0};
+  double no_record_closest = 0.5; // 最も偏っていた min(σ̄, 1-σ̄)
   vector<string> no_record_examples;
   for(const auto& kv : sigma0) {
     const string& history = kv.first;
     if(win_hist_set.count(history) || lose_hist_set.count(history)) continue;
     no_record_total++;
     double p = kv.second;
-    no_record_dist[bucket_index(std::min(p, 1.0 - p))]++;
+    const double skew = std::min(p, 1.0 - p);
+    no_record_dist[bucket_index(skew)]++;
+    no_record_closest = std::min(no_record_closest, skew);
     if(p < eps || p > 1.0 - eps) {
       no_record_extreme++;
       if((int)no_record_examples.size() < EXAMPLE_N) {
@@ -302,7 +315,9 @@ int main(int argc, char* argv[]) {
   cout << endl
        << "--- 方向2: σ̄ が偏っているのに記録が無い ---" << endl;
   cout << "記録の無い情報集合            : " << no_record_total << endl;
-  cout << "  うち σ̄ < EPS または > 1-EPS : " << no_record_extreme << endl;
+  cout << "  うち σ̄ < EPS または > 1-EPS : " << no_record_extreme;
+  if(no_record_extreme == 0) cout << "   (検出には EPS > " << no_record_closest << " が要る)";
+  cout << endl;
   for(const auto& line : no_record_examples) cout << line << endl;
   print_distribution("  偏りの分布 min(σ̄, 1-σ̄)", no_record_dist);
 
