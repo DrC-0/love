@@ -57,8 +57,13 @@ rnd 側は `rnd_make_infset.hpp` が情報集合表を作り、`infset_iswin.cpp
   `all_put_hide_card` などを**無修飾の自由関数として**呼ぶ。この呼び出しを
   受けるため、`all_elements.hpp` の末尾に `inline` のラッパーが8本ある。
   `infset_dfs*.hpp` 側を `all_elements_walker<...>::` に書き換えてはいけない。
-  `infset_dfs.hpp` は `br.cpp` (org) と `compare_abscfr.cpp` (rnd) の両方から
-  include されるので、どちらかが必ず壊れる。
+  かつては `infset_dfs.hpp` が `br.cpp` (org) と `compare_abscfr.cpp` (rnd) の
+  両方から include されており、どちらかが必ず壊れる、というのが理由だった。
+  `compare_abscfr.cpp` を消した今は `infset_dfs.hpp` の include 元は `br.cpp`
+  だけ、`infset_dfs_rnd.hpp` は `br_rnd.cpp` だけなので、**その理由は消えている**。
+  作り直した `comp` (`compare_strategy.cpp`) は `infset_dfs*.hpp` も
+  `all_elements.hpp` も include しない。ラッパーを畳むなら今は畳める
+  (未着手。畳むとしても8本まとめて)。
 - **`table_infset` を引く2箇所はポリシーを通さず `n.rnd_his_p` 固定。**
   org ビルドでも情報集合表は rnd のものだから。木の履歴だけが `P::his` / `P::his_p`。
 - 兵士の扱いの違いは `if constexpr(P::soldior_is_decision)` で分かれている。

@@ -126,3 +126,16 @@ org 分岐は `soldior_prob` を参照するが、`br_rnd.cpp` はこの配列�
 `comp 5 5 7` は検証に使えない。`get_action` が範囲外の添字で gperf の語表を
 読む未定義動作があり、実行のたびに正常終了 / abort / segfault が変わる。
 `373d4ba` から再現する既存の不具合で、この変更とは無関係。
+
+## 追記: `compare_abscfr.cpp` が消えたので、ラッパーの根拠は変わった
+
+上の「`infset_dfs.hpp` は `br.cpp` と `compare_abscfr.cpp` の両方から include
+される」は成り立たなくなった。`compare_abscfr.cpp` は削除済みで、作り直した
+`comp` (`compare_strategy.cpp`) は `infset_dfs*.hpp` も `all_elements.hpp` も
+include しない (情報集合表と `str` / `wininf` / `loseinf` しか読まないため)。
+
+現在の include 元は `infset_dfs.hpp` が `br.cpp` だけ、`infset_dfs_rnd.hpp` が
+`br_rnd.cpp` だけで、**1つのヘッダが2つの `-D` 設定から include される状況は
+無い**。したがって `all_elements.hpp` 末尾の `inline` ラッパー8本は、いまは
+「畳めないから残している」のではなく「畳んでいないだけ」である。畳むときは
+8本まとめて、`infset_dfs*.hpp` の呼び出しも同時に書き換えること。
