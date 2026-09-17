@@ -169,6 +169,12 @@ auto l = lc.use_lose(bs, card);
     (`char_to_action(action[0]) / 10 == 0`) は常に偽の死んだ枝だった
     (履歴の先頭は初期手札で上位桁は 1 か 2 しか取らない。実測: cfrorg 111
     深さ6 で 1 が 369,540 件、2 が 1,153,547 件、0 は 0 件)。削除済み。
+  - `cfr_exp_reward.hpp` の魔術師ノードは `reward1 * p + reward2 * (1 - p)` で、
+    `reward1` が `do_action(6)` = 相手、`reward2` が `do_action(7)` = 自分。
+    つまり **CFR の行動0 = 相手、行動1 = 自分**で、`visit_winlose.hpp` の
+    `wf[]` と同じ並び、`winlose_record.slot` (0 = 自分) とは逆。
+  - `str<部分ゲーム><反復>.bin` と `wininf` / `loseinf` を突き合わせるときは
+    対象選択ノードだけスロットを反転させること (`compare_strategy.cpp`)。
 - **`is_my_turn` は「いま手番を持っているのが視点プレイヤー (`_s`) か」。**
   **`ef_wizard` (`belief_state.hpp`) はこのフラグで「自分が魔術師を使う」(真) と
   「相手が使う」(偽) を分けており、単なる簿記ではない。**

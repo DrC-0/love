@@ -51,6 +51,13 @@ win: infset_iswin.cpp save_load_winlose.hpp \
      $(COMMON_SRCS) $(COMMON_HDRS)
 	g++ -std=c++20 $(COMMON_WARN) -O2 $(COMMON_DEFS)  $(COMMON_SRCS) infset_iswin.cpp -o $@
 
+# win が書いた wininf/loseinf と cfr が書いた str<部分ゲーム>64.bin を突き合わせる
+# 読み取り専用の調査ツール。rnd 側だけを見るので -DALL_ELEMENTS_ORG は付けない。
+comp: compare_strategy.cpp save_load_winlose.hpp rnd_make_infset.hpp \
+      belief_state.hpp belief_state_history.hpp \
+      $(COMMON_SRCS) $(COMMON_HDRS)
+	g++ -std=c++20 $(COMMON_WARN) -O2 $(COMMON_DEFS) $(COMMON_SRCS) compare_strategy.cpp -o $@
+
 # --- その他 ---
 test: test.cpp action_code.hpp action_code.cpp \
       belief_state.hpp belief_state_history.hpp belief_state_win.hpp belief_state_lose.hpp \
