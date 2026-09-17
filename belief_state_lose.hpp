@@ -20,8 +20,10 @@ private:
   std::unordered_map<unsigned long long, lose_result> m_use_lose, m_wizard_lose;
 };
 
-//<使うカード, 敗北するまでのターン数>を返す。敗北しない場合は<0, 0>
-//ルール上すでに敗北の場合9, 魔術師の使用による敗北で,対象自分のみなら15,対象相手のみなら25
+// <行動, 敗北するまでのターン数> の並びを返す。必敗の行動が無ければ空。
+// 行動は、カード使用ノードなら使うカード (1〜8)、魔術師の対象選択ノードなら
+// 0 = 自分 / 1 = 相手。ルール上すでに敗北している場合だけ 9 を1件返す。
+// (この多目的のコードは未整理。行動ごとの真偽と手数を持つ形にする予定。)
 std::vector<std::pair<int, int>> belief_state_lose_checker::is_lose(const belief_state& bs) {
   CW_BUMP(is_lose);
 
@@ -35,8 +37,6 @@ std::vector<std::pair<int, int>> belief_state_lose_checker::is_lose(const belief
     if(min.value() > bs.hand_s[0].value()) return {{9, 0}};
     else return {};
   }
-  if(bs.have_s(Card{8})) return {{8, 1}};
-
   std::vector<std::pair<int, int>> res;
 
   if(!bs.hand_s[1].has_value() && bs.is_sol_choice) return {};
@@ -69,6 +69,9 @@ lose_result belief_state_lose_checker::use_lose(const belief_state& bs, Card car
 
 lose_result belief_state_lose_checker::use_lose_uncached(const belief_state& bs, Card card) {
   CW_BUMP(use_lose);
+  // 姫(8) は捨てたら負け。自分の行動1つで負けが決まるので深さは 1。
+  // use_win_uncached の if(card == Card{8}) return {false, 0}; と対になる。
+  if(card == Card{8}) return {true, 1};
   if(card == Card{3} && !bs.barrier_e) {
     if(bs.hand_e_min().value() > bs.other_hand_s(Card{3}).value()) return {true, 1};
     if(bs.hand_e_min().value() < bs.other_hand_s(Card{3}).value()) return {false, 0};
@@ -232,8 +235,14 @@ lose_result belief_state_lose_checker::wizard_lose_uncached(const belief_state& 
   CW_BUMP(wizard_lose);
   // 魔術師を使うのは自分。ef_wizard がこのフラグで枝を分ける。
   if(!bs.is_my_turn) exit_with_print(bs, "wizard_lose: is_my_turn が偽");
+  // 自分を対象にすると手札を捨てて引き直す。それが姫(8) なら捨てた時点で負け。
+  // ef_wizard はこの場合に候補を返さないので、preds.empty() の {false, 0} に
+  // 落ちてしまう。必勝側は「候補が無い = 勝てない」で正しいが、必敗側は
+  // 「候補が無い = 負け」なので、ここで先に答える。
+  if(to_self && bs.hand_s[0] == Card{8}) return {true, 1};
   if(!to_self && bs.hand_e(Card{8}) && !bs.barrier_e) return {false, 0};
-  if(to_self && bs.hand_s[0] == Card{7}) return {true, 0};
+  // 深さは「自分の行動が何回続くか」。対象選択も1つの行動なので 0 ではなく 1。
+  if(to_self && bs.hand_s[0] == Card{7}) return {true, 1};
   ef_wizard_preds preds;
   ef_wizard(bs, to_self, preds);
   if(preds.empty()) return {false, 0};
@@ -250,6 +259,7 @@ lose_result belief_state_lose_checker::wizard_lose_uncached(const belief_state& 
       }
     }
   }
-  return {true, local_max_f};
+  // 対象選択という自分の行動が1つ乗るので +1 する。
+  return {true, local_max_f + 1};
 }
 #endif
