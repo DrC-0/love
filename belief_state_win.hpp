@@ -38,16 +38,38 @@ struct win_decision {
   }
 };
 
+// どのスロットの行動で必敗が成立するか。
+// win_decision と違い **スロットは2つしかない**。必敗判定が起きる意思決定点は
+//   - カード使用ノード: スロット 0 = hand_s[0]、1 = hand_s[1]
+//   - 魔術師の対象選択ノード: スロット 0 = 自分、1 = 相手
+// の2種類だけで、行動が8通りある兵士の宣言ノードには必敗判定が無いため
+// (is_lose は sol_choice で必ず空を返す。visit_winlose.hpp の enter_soldier が
+//  無条件に lose_points[0] を増やしているのも同じ理由)。
+struct lose_decision {
+  decision_kind kind; // play_card か wizard_target。soldier_declaration は現れない
+  lose_result slot[2];
+
+  bool has_lose() const {
+    return slot[0].is_lose || slot[1].is_lose;
+  }
+  int count() const {
+    return (slot[0].is_lose ? 1 : 0) + (slot[1].is_lose ? 1 : 0);
+  }
+};
+
 // 終端判定。カードを問わない位置レベルの判定だけを見る。
-// not_terminal = まだ決着していない、lost = ルール上すでに負け、
-// won = 山札が尽きて手札比較で勝ち。won のとき手札は1枚なので、
-// どのカードで勝つかを言う必要が無い (だから戻り値はこの3値だけでよい)。
-enum class terminal_kind { not_terminal,
-                           lost,
-                           won };
+// 山札が尽きたとき、相手の手札が候補集合でしか分からないので、
+// 勝ち・負け・どちらとも言えない、の3つに分かれる。
+enum class terminal_kind {
+  not_terminal, // 終局条件に該当しない。探索を続ける
+  certain_win, // 必ず勝つ
+  certain_lose, // 必ず負ける
+  uncertain, // 終局だが相手の手札が絞れず勝敗が確定しない
+};
 
 terminal_kind check_terminal(const belief_state& bs);
-std::vector<int> able_actions(const belief_state& bs, int card, bool is_second_player);
+std::vector<int> able_actions_play(const belief_state& bs, Card card, bool is_second_player);
+std::vector<int> able_actions_wizard(const belief_state& bs, bool to_self, bool is_second_player);
 int action_count(const belief_state& bs);
 
 // belief_state と引数以外の可変状態を読まない純関数なので、6本はメモ化する。
@@ -110,18 +132,20 @@ terminal_kind check_terminal(const belief_state& bs) {
   CW_BUMP(check_terminal);
   // 大臣(7) を持っていて手札の合計が12以上ならルール上の負け。
   if(bs.have_s(Card{7}) && bs.hand_s[1].has_value() && bs.hand_s[0].value().value() + bs.hand_s[1].value().value() >= 12) {
-    return terminal_kind::lost;
+    return terminal_kind::certain_lose;
   }
   // 山札が尽きたら手札の大きい方が勝ち。ここは手札1枚なので勝ちカードは自明。
+  // 相手の手札は候補集合なので、最大が自分より小さければ必ず勝ち、最小が
+  // 自分より大きければ必ず負け、またがっていればどちらとも言えない。
   // count_deck() は8要素ループなので、スカラの比較3つを先に評価する。
   // どれも副作用が無いので && の順序を入れ替えても意味は変わらない。
   if(!bs.hand_s[1].has_value() && !bs.is_wiz_choice && !bs.is_sol_choice && bs.count_deck() < 2) {
-    MaybeCard max = bs.hand_e_max();
-    if(max.value() < bs.hand_s[0].value()) return terminal_kind::won;
-    else return terminal_kind::lost;
+    if(bs.hand_e_max().value() < bs.hand_s[0].value()) return terminal_kind::certain_win;
+    if(bs.hand_e_min().value() > bs.hand_s[0].value()) return terminal_kind::certain_lose;
+    return terminal_kind::uncertain;
   }
   // 兵士(1) / 騎士(3) / 魔術師(5) を出した瞬間に勝つ判定は、どのカードを出すかが
-  // 決まってからの問いなので use_win_uncached の先頭に移した。
+  // 決まってからの問いなので use_win_uncached の先頭にある。
   return terminal_kind::not_terminal;
 }
 
@@ -385,7 +409,7 @@ win_result belief_state_win_checker::enemy_turn_win_uncached(const belief_state&
   // 相手がカードを出す局面なので、必ず相手の手番。
   if(bs.is_my_turn) exit_with_print(bs, "enemy_turn_win: is_my_turn が真");
   const terminal_kind t = check_terminal(bs);
-  if(t != terminal_kind::not_terminal) return {t == terminal_kind::won, 0};
+  if(t != terminal_kind::not_terminal) return {t == terminal_kind::certain_win, 0};
 
   bool all_true = true;
   int max_f = -1;
@@ -555,7 +579,7 @@ win_result belief_state_win_checker::draw_win_uncached(const belief_state& bs) {
   // 自分の手番なので、入口では真でなければならない。
   if(!bs.is_my_turn) exit_with_print(bs, "draw_win: is_my_turn が偽");
   const terminal_kind t = check_terminal(bs);
-  if(t != terminal_kind::not_terminal) return {t == terminal_kind::won, 0};
+  if(t != terminal_kind::not_terminal) return {t == terminal_kind::certain_win, 0};
 
   bool all_true = true;
   int max_f = -1;
@@ -662,49 +686,50 @@ win_result belief_state_win_checker::wizard_win_uncached(const belief_state& bs,
 }
 
 // 行動コードは 0-origin のカード添字をそのまま桁に埋め込むシリアライズ形式
-// なので、この関数の中だけは添字 (0..7) で通す。Belief State のアクセサは
-// カード (1..8) を取るため、呼び出しでだけ +1 する。
-std::vector<int> able_actions(const belief_state& bs, int card, bool is_second_player) {
-  int base = 40 + card - 1;
+// なので、この関数の中だけは添字 (0..7) で通す。
+std::vector<int> able_actions_wizard(const belief_state& bs, bool to_self, bool is_second_player) {
+  std::vector<int> actions;
+  if(bs.hand_s[1].has_value() || !bs.is_wiz_choice) return actions;
+
+  // --- 自分を対象とする場合 ---
+  if(to_self != is_second_player) {
+    const int other_raw = to_self ? bs.hand_s[0].raw() : 0;
+    for(int j = 0; j < 8; j++)
+      if(bs.deck(Card{j + 1})) actions.push_back(44000 + is_second_player * 100 + (other_raw - 1) * 10 + j);
+  }
+  // --- 相手を対象とする場合 ---
+  else {
+    if(!bs.barrier_e) {
+      for(int i = 0; i < 7; i++) {
+        if(bs.hand_e(Card{i + 1})) { // 相手が捨てさせられるカード
+          actions.push_back(44000 + !is_second_player * 100 + i * 10 + 0);
+        }
+      }
+    } else actions.push_back(44000 + !is_second_player * 100);
+  }
+  return actions;
+}
+
+std::vector<int> able_actions_play(const belief_state& bs, Card card, bool is_second_player) {
+  (void)is_second_player; // カード使用側は先手後手を見ない (今と同じ)
+  const int base = 40 + card.index();
   std::vector<int> actions;
 
-  if(!bs.hand_s[1].has_value() && bs.is_wiz_choice) {
-    // --- 自分を対象とする場合 ---
-    if((card == 0 && !is_second_player) || (card == 1 && is_second_player)) {
-      // ここの card は実カードではなく 0/1 の対象選択フラグなので、Card を作れない
-      // (値域 1..8 を破る)。元のコードは other_hand_s(card) を呼んでおり、この分岐は
-      // hand_s[1] が無いことが前提なので、card==0 なら hand_s[0]、card==1 なら
-      // どちらの枝にも該当せず「無し」(生の値 0) を返す。その結果を直接書く。
-      const int other_raw = (card == 0) ? bs.hand_s[0].raw() : 0;
-      for(int j = 0; j < 8; j++)
-        if(bs.deck(Card{j + 1})) actions.push_back(44000 + is_second_player * 100 + (other_raw - 1) * 10 + j);
-    }
-    // --- 相手を対象とする場合 ---
-    else if((card == 0 && is_second_player) || (card == 1 && !is_second_player)) {
-      if(!bs.barrier_e) {
-        for(int i = 0; i < 7; i++) {
-          if(bs.hand_e(Card{i + 1})) { // 相手が捨てさせられるカード
-            actions.push_back(44000 + !is_second_player * 100 + i * 10 + 0);
-          }
-        }
-      } else actions.push_back(44000 + !is_second_player * 100);
-    }
-  } else if(card == 4 || card == 7 || bs.barrier_e || card == 1) {
+  if(card == Card{4} || card == Card{7} || bs.barrier_e || card == Card{1}) {
     actions.push_back(base);
-  } else if(card == 2) {
+  } else if(card == Card{2}) {
     // 相手の判明するカード
     for(int i = 0; i < 8; i++)
       if(bs.hand_e(Card{i + 1})) actions.push_back(base * 10 + i);
-  } else if(card == 3) {
+  } else if(card == Card{3}) {
     // 相手の判明するカード
-    int other_i = bs.other_hand_s(Card{card}).value().index();
+    int other_i = bs.other_hand_s(card).value().index();
     if(bs.hand_e(Card{other_i + 1})) actions.push_back(base * 100 + other_i * 11);
-  } else if(card == 6) {
+  } else if(card == Card{6}) {
     // 相手と交換するカード
     for(int i = 0; i < 8; i++)
-      if(bs.hand_e(Card{i + 1})) actions.push_back(base * 100 + (bs.other_hand_s(Card{card}).value().index()) * 10 + i);
+      if(bs.hand_e(Card{i + 1})) actions.push_back(base * 100 + (bs.other_hand_s(card).value().index()) * 10 + i);
   }
-
   return actions;
 }
 

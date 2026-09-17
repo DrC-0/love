@@ -83,7 +83,7 @@ Belief State は依存が一方向の4ファイルに分かれている。umbrel
 |---|---|---|
 | `belief_state.hpp` | 型・アクセサ・フラグ更新・遷移・表示 | — |
 | `belief_state_history.hpp` | 履歴コンストラクタと符号化・復号 | `belief_state.hpp` |
-| `belief_state_win.hpp` | 必勝判定6本 + `check_terminal` + `able_actions` `action_count` | `belief_state.hpp` |
+| `belief_state_win.hpp` | 必勝判定6本 + `check_terminal` + `able_actions_play` `able_actions_wizard` `action_count` | `belief_state.hpp` |
 | `belief_state_lose.hpp` | 必敗判定3本 | `belief_state_win.hpp` |
 
 必勝判定の6本 (`is_win` `use_win` `enemy_turn_win` `draw_win` `soldier_win`
@@ -129,15 +129,19 @@ auto l = lc.use_lose(bs, card);
   (原因は `node::valid_data()` で、`Card` の検査は実測 +1% 未満)。
   **常に成り立つべき不変条件を `assert` で書かないこと。**
   詳細は `docs/adr/0008-card-types.md`。
-- **カードでないものに `Card` を当てないこと。** `able_actions` の `card` 引数は
-  `is_lose` が返す多目的のコードで、カード 1〜8 のほかに 0 / 9 を取り、
-  `is_wiz_choice` の分岐では 0/1 の対象選択フラグになる。`int` のまま。
+- **カードでないものに `Card` を当てないこと。** `able_actions` は
+  `able_actions_play(bs, Card card, bool)` と
+  `able_actions_wizard(bs, bool to_self, bool)` の2本に分かれている。
+  対象選択フラグ (自分/相手) はカードではないので `able_actions_wizard` の
+  第2引数は `Card` ではなく `bool to_self`。呼び分けを取り違えると
+  コンパイルが通らない。
 - **アクセサはカード (1〜8) を取る。** `hand_e(card)` `deck(card)` `deck_or_hand_e(card)`
   `hand_s_est(card)` `have_s(card)` すべて 1-origin で揃えてある。カードを回すループは
   `for(int card = 1; card <= 8; card++)`。`- 1` が要るのは `trash[]` と `max_num[]` の
   添字だけで、`sol_flag_*[2]` `hand_s[2]` は `[0]` `[1]` 固定なので足してはいけない。
-  例外は `belief_state_win.hpp` の `able_actions` で、行動コードが 0-origin の添字を
-  そのまま桁に埋め込むシリアライズ形式のため、この関数の中だけ添字で通している。
+  例外は `belief_state_win.hpp` の `able_actions_play` / `able_actions_wizard` で、
+  行動コードが 0-origin の添字をそのまま桁に埋め込むシリアライズ形式のため、
+  この関数の中だけ添字で通している。
 - `_s` = 視点プレイヤー自身、`_e` = 相手。`hand_s[2]` が自分の手札で、相手の手札は `trash` と推論フラグ (`open_flag_e`, `sol_flag_e`, `lt5_flag_e`, `not7_flag_e`) から `hand_e(i)` で候補集合として復元する。
 - 推論フラグの意味: `lt5_*` = 大臣(7)を出したので残りの手札は5未満、`not7_*` = 魔術師(5)を出したので大臣(7)は持っていない、`sol_*` = 兵士で宣言されて外れたカード。
 - 選択ノード (`is_sol_choice` / `is_wiz_choice`) では必ず `hand_s[1] == 0`。また相手が `barrier_e` のときは宣言・対象選択自体が発生しないので選択ノードにならない。
@@ -206,10 +210,19 @@ auto l = lc.use_lose(bs, card);
     `turns[i]` はそのビットが立っているときだけ意味を持つ。行動番号の読み方は
     `kind` (`play_card` = カード − 1、`wizard_target` = 0 自分 / 1 相手、
     `soldier_declaration` = 0 宣言なし / 1〜7 がカード 2〜8) で決まる。
-  - `check_terminal` は `terminal_kind` (`not_terminal` / `lost` / `won`) の3値だけ。
-    `won` は山札が尽きての勝ちで手札が1枚なので、どのカードで勝つかは自明。
-    兵士(1)/騎士(3)/魔術師(5) を出した瞬間の勝ちは `use_win_uncached` の先頭にある。
-  - `is_lose` の `9` は「ルール上すでに敗北」。多目的のコードは未整理。
+  - `check_terminal` は `terminal_kind` (`not_terminal` / `certain_win` /
+    `certain_lose` / `uncertain`) の4値。山札が尽きたとき、相手の手札が候補
+    集合でしか分からないので、必勝側が見る `certain_win` と必敗側が見る
+    `certain_lose` は別の値になる (どちらでもなければ `uncertain`)。
+    `certain_win` は山札が尽きての勝ちで手札が1枚なので、どのカードで勝つかは
+    自明。兵士(1)/騎士(3)/魔術師(5) を出した瞬間の勝ちは `use_win_uncached`
+    の先頭にある。「ルール上すでに敗北」は行動ではなく位置レベルの事実なので
+    `is_lose` ではなく `check_terminal` の `certain_lose` が答える。
+  - `is_lose` は `lose_decision` を返す。`slot[0]` / `slot[1]` (`lose_result`)
+    がどのスロットの行動で必敗するかを表す。スロットの意味は `kind`
+    (`play_card` = `hand_s[0]` / `hand_s[1]`、`wizard_target` = 0 自分 / 1 相手)
+    で決まる。兵士の宣言ノード (`soldier_declaration`) には必敗判定が無いので
+    `kind` にはならない。
 
 ## コード整形と静的解析
 

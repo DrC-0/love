@@ -8,7 +8,7 @@ struct belief_state_lose_checker {
   explicit belief_state_lose_checker(belief_state_win_checker& w)
     : win(w) {}
 
-  std::vector<std::pair<int, int>> is_lose(const belief_state& bs); // メモ化しない
+  lose_decision is_lose(const belief_state& bs); // メモ化しない
   lose_result use_lose(const belief_state& bs, Card card);
   lose_result wizard_lose(const belief_state& bs, bool to_self);
 
@@ -20,40 +20,31 @@ private:
   std::unordered_map<unsigned long long, lose_result> m_use_lose, m_wizard_lose;
 };
 
-// <行動, 敗北するまでのターン数> の並びを返す。必敗の行動が無ければ空。
-// 行動は、カード使用ノードなら使うカード (1〜8)、魔術師の対象選択ノードなら
-// 0 = 自分 / 1 = 相手。ルール上すでに敗北している場合だけ 9 を1件返す。
-// (この多目的のコードは未整理。行動ごとの真偽と手数を持つ形にする予定。)
-std::vector<std::pair<int, int>> belief_state_lose_checker::is_lose(const belief_state& bs) {
+// どのスロットの行動で必敗するかを返す。スロットの意味は lose_decision を参照。
+// 「ルール上すでに敗北」は行動ではなく位置レベルの事実なので、この関数では
+// 扱わない。呼び出し側が check_terminal() == certain_lose で見ること。
+lose_decision belief_state_lose_checker::is_lose(const belief_state& bs) {
   CW_BUMP(is_lose);
 
-  if(bs.have_s(Card{7}) && bs.hand_s[1].has_value() && bs.hand_s[0].value().value() + bs.hand_s[1].value().value() >= 12) {
-    return {{9, 0}};
+  if(!bs.hand_s[1].has_value() && bs.is_sol_choice) {
+    // 兵士の宣言ノードには必敗判定が無い。
+    return lose_decision{decision_kind::play_card, {}};
   }
-  // count_deck() は8要素ループなので、スカラの比較3つを先に評価する。
-  // どれも副作用が無いので && の順序を入れ替えても意味は変わらない。
-  if(!bs.hand_s[1].has_value() && !bs.is_wiz_choice && !bs.is_sol_choice && bs.count_deck() < 2) {
-    MaybeCard min = bs.hand_e_min();
-    if(min.value() > bs.hand_s[0].value()) return {{9, 0}};
-    else return {};
+  if(!bs.hand_s[1].has_value() && bs.is_wiz_choice) {
+    lose_decision d{decision_kind::wizard_target, {}};
+    d.slot[0] = wizard_lose(bs, true); // 0 = 自分
+    d.slot[1] = wizard_lose(bs, false); // 1 = 相手
+    return d;
   }
-  std::vector<std::pair<int, int>> res;
-
-  if(!bs.hand_s[1].has_value() && bs.is_sol_choice) return {};
-  else if(!bs.hand_s[1].has_value() && bs.is_wiz_choice) {
-    auto res_self = wizard_lose(bs, true);
-    auto res_enemy = wizard_lose(bs, false);
-
-    if(res_self.is_lose) res.push_back({0, res_self.turns});
-    if(res_enemy.is_lose) res.push_back({1, res_enemy.turns});
-    return res;
-  } else if(bs.is_my_turn && bs.hand_s[1].has_value()) {
-    auto res0 = use_lose(bs, bs.hand_s[0].value());
-    auto res1 = use_lose(bs, bs.hand_s[1].value());
-    if(res0.is_lose) res.push_back({bs.hand_s[0].value().value(), res0.turns});
-    if(res1.is_lose) res.push_back({bs.hand_s[1].value().value(), res1.turns});
-    return res;
-  } else return {};
+  if(bs.is_my_turn && bs.hand_s[1].has_value()) {
+    lose_decision d{decision_kind::play_card, {}};
+    d.slot[0] = use_lose(bs, bs.hand_s[0].value());
+    // 手札の2枚が同じカードなら行動は1つしかない。スロット1は立てない。
+    // is_win_uncached が同じ場合に片方だけ評価するのと合わせる。
+    if(bs.hand_s[0] != bs.hand_s[1]) d.slot[1] = use_lose(bs, bs.hand_s[1].value());
+    return d;
+  }
+  return lose_decision{decision_kind::play_card, {}};
 }
 
 lose_result belief_state_lose_checker::use_lose(const belief_state& bs, Card card) {

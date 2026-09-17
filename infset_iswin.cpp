@@ -74,7 +74,7 @@ void cnt_abs(int open[3], string history,
     // 通らずに返す (belief_state_win.hpp の is_win_uncached)。
     // ここに来るのは has_win() が真のときだけなので、決着していれば won。
     // won は山札が尽きての勝ちで手札は1枚なので、行動はスロット0のカードしかない。
-    if(check_terminal(bs) == terminal_kind::won) {
+    if(check_terminal(bs) == terminal_kind::certain_win) {
       win_rows.push_back({history, true, false, 0});
     } else if(!bs.hand_s[1].has_value() && bs.is_sol_choice) {
       // rnd では兵士の宣言は自然手番なので、宣言ノードが情報集合表に入ることは
@@ -102,44 +102,37 @@ void cnt_abs(int open[3], string history,
     }
   } else win_move[0]++;
 
-  auto lose_actions = lc.is_lose(bs);
-  int act_cnt = action_count(bs);
-  int able_act = act_cnt - lose_actions.size();
-  lose_move[0] += able_act;
-  if(able_act == 1 && act_cnt > 1) only_history.insert(history);
+  const int act_cnt = action_count(bs);
+  if(check_terminal(bs) == terminal_kind::certain_lose) {
+    // ルール上すでに敗北。どの行動も選ぶ意味が無いので able_act は 0。
+    lose_move[0] += 0;
+    if(act_cnt > 1) only_history.insert(history);
+    output_actions_history(history, true);
+  } else {
+    const lose_decision d = lc.is_lose(bs);
+    const int able_act = act_cnt - d.count();
+    lose_move[0] += able_act;
+    if(able_act <= 1 && act_cnt > 1) only_history.insert(history);
 
-  bool pushed[2] = {false, false}; // 同じスロットを 2 回積まないための印
+    for(int slot = 0; slot < 2; slot++) {
+      if(!d.slot[slot].is_lose) continue;
+      lose_move[d.slot[slot].turns]++;
 
-  for(const auto& lose_action : lose_actions) {
-    lose_move[lose_action.second]++;
-
-    if(lose_action.first == 9) {
-      output_actions_history(history, true);
-    } else {
-      // 特定のアクションの先が必敗の場合（元コードのロジックを忠実に再現）
       string action = rph.get_action((unsigned char)history[0]);
-
       int firstp = char_to_action(action[0]) / 10;
-      auto actions = able_actions(bs, lose_action.first, firstp == 2);
+      const bool is_second_player = (firstp == 2);
 
-      // able_actions が空なら今も abs_history に何も入らないので、行も書かない
+      std::vector<int> actions;
+      if(d.kind == decision_kind::wizard_target) {
+        actions = able_actions_wizard(bs, slot == 0, is_second_player);
+      } else {
+        actions = able_actions_play(bs, bs.hand_s[slot].value(), is_second_player);
+      }
+
+      // able_actions が空なら abs_history に何も入らないので、行も書かない
       if(!actions.empty()) {
-        bool is_choice_node;
-        int slot;
-        if(bs.is_wiz_choice) {
-          // lose_action.first は 0 = 自分 / 1 = 相手。カードではない
-          is_choice_node = true;
-          slot = lose_action.first;
-        } else {
-          is_choice_node = false;
-          slot = (bs.hand_s[0].has_value() && bs.hand_s[0].value().value() == lose_action.first)
-                     ? 0
-                     : 1;
-        }
-        if(!pushed[slot]) {
-          pushed[slot] = true;
-          lose_rows.push_back({history, false, is_choice_node, (unsigned char)slot});
-        }
+        const bool is_choice_node = (d.kind == decision_kind::wizard_target);
+        lose_rows.push_back({history, false, is_choice_node, (unsigned char)slot});
       }
 
       for(int act : actions) {
@@ -149,8 +142,6 @@ void cnt_abs(int open[3], string history,
         } else {
           new_hist = history + string(1, action2char(act, true));
         }
-
-        // それぞれの new_hist を挿入
         abs_history.insert({new_hist, false});
       }
     }
