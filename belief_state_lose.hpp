@@ -58,6 +58,31 @@ lose_result belief_state_lose_checker::use_lose(const belief_state& bs, Card car
   return r;
 }
 
+// このカードを出したあと、勝敗が「自分に残る1枚」と「相手の手札の候補」だけで
+// 決まるか。真なら山札が尽きていればその場で答えが出るので、視点を入れ替えて
+// 相手に訊く必要がない。
+//
+// 分かれ目は、そのカードの効果が比べ合いに届くかどうか。
+//   道化(2) 僧侶(4) 大臣(7)  手札も選択も動かさないので、いつでも決まる。
+//   兵士(1) 騎士(3) 将軍(6)  相手に作用する。宣言が的中する・その場で比べる・
+//                            手札が入れ替わる。相手が僧侶(4) で守られていれば
+//                            どれも起きないので、そのときだけ決まる。
+//   魔術師(5)                自分を対象にもできるので、守られていても無効に
+//                            ならない。wizard_lose が効果を受けた後の候補ごとに見る。
+//   姫(8)                    use_lose_uncached の先頭で必敗を返すのでここには来ない。
+inline bool settled_by_hands_only(Card card, bool barrier_e) {
+  switch(card.value()) {
+  case 2:
+  case 4:
+  case 7:
+    return true;
+  case 5:
+    return false;
+  default: // 兵士(1) 騎士(3) 将軍(6)。姫(8) は届かない
+    return barrier_e;
+  }
+}
+
 lose_result belief_state_lose_checker::use_lose_uncached(const belief_state& bs, Card card) {
   CW_BUMP(use_lose);
   // 姫(8) は捨てたら負け。自分の行動1つで負けが決まるので深さは 1。
@@ -87,6 +112,18 @@ lose_result belief_state_lose_checker::use_lose_uncached(const belief_state& bs,
   next_bs = reset_flag_by_use(next_bs, true, card);
 
   if(card.value() >= 5) next_bs.not7_flag_s = true;
+
+  // 山札が尽きていれば、この手を出した時点で比べ合いが決まる。決まるのは実際の
+  // カードであって相手の信念ではないので、「相手が勝ちを確信できるか」を
+  // draw_win に訊くのでは答えが出ない。自分視点の終局判定で答える。
+  // 必勝側は enemy_turn_win の入口 (belief_state_win.hpp) で同じことをしている。
+  if(settled_by_hands_only(card, bs.barrier_e)) {
+    const terminal_kind t = check_terminal(next_bs);
+    if(t != terminal_kind::not_terminal) {
+      const bool lost = (t == terminal_kind::certain_lose);
+      return {lost, lost ? 1 : 0};
+    }
+  }
 
   // ANDノードの深さ集約用変数
   int max_f = -1;
@@ -184,6 +221,15 @@ lose_result belief_state_lose_checker::use_lose_uncached(const belief_state& bs,
         struct belief_state next_bs2 = next_bs;
         next_bs2.hand_s[0] = card2;
         next_bs2.open_flag_s = card2;
+        // 山札が尽きていれば交換した時点で比べ合いが決まる。交換後の相手の
+        // 手札は open_flag_e で確定しているので、自分視点の終局判定で答えが
+        // 出る。相手が勝ちを確信できるかを draw_win に訊くのでは答えにならない。
+        const terminal_kind t6 = check_terminal(next_bs2);
+        if(t6 != terminal_kind::not_terminal) {
+          if(t6 != terminal_kind::certain_lose) return {false, 0};
+          max_f = std::max(max_f, 0);
+          continue;
+        }
         struct belief_state next_bs3 = swap_player(next_bs2, other);
         auto res = win.draw_win(next_bs3);
         if(res.is_win) max_f = std::max(max_f, res.turns);
@@ -240,6 +286,15 @@ lose_result belief_state_lose_checker::wizard_lose_uncached(const belief_state& 
   int local_max_f = -1;
   for(const auto& p : preds) {
     validate_hand_e_candidate(p, "wizlose");
+    // 山札が尽きていれば、効果を受けた時点で比べ合いが決まる。ef_wizard は
+    // 山札が最後の1枚 (伏せ札) のときもそれを引く形で候補を作るので、
+    // ここでの局面はすでに引き直し後。自分視点の終局判定で答える。
+    const terminal_kind t5 = check_terminal(p);
+    if(t5 != terminal_kind::not_terminal) {
+      if(t5 != terminal_kind::certain_lose) return {false, 0};
+      local_max_f = std::max(local_max_f, 0);
+      continue;
+    }
     for(int c = 1; c <= 8; c++) {
       Card card{c};
       if(p.hand_e(card)) {
