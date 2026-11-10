@@ -10,6 +10,8 @@ if [ -f "$ENV_FILE" ]; then . "$ENV_FILE"; fi
 ./upload_csv.sh "lose_count.csv" "$SPREADSHEET_ID" "lose_count"
 ./upload_csv.sh "infset_wl.csv" "$SPREADSHEET_ID" "infset_wl"
 
+./upload_csv.sh "br_exploitation.csv" "$SPREADSHEET_ID" "br_exploitation"
+
 ./upload_csv.sh "org_win_points.csv" "$SPREADSHEET_ID" "org_win_points"
 ./upload_csv.sh "org_lose_points.csv" "$SPREADSHEET_ID" "org_lose_points"
 ./upload_csv.sh "org_wl_points.csv" "$SPREADSHEET_ID" "org_wl_points"

@@ -9,8 +9,17 @@ target_rules() {
 # target<TAB>pgrep -f 用の拡張正規表現
 cfrorg	(^|[[:space:]/])cfrorg\.sh([[:space:]]|$)
 cfrorg	(^|[[:space:]/])cfrorgupl\.sh([[:space:]]|$)
-cfrorg	xargs[[:space:]].*-a[[:space:]]all_subgames\.txt
+# all_subgames.txt は cfrorg / win / brorg が共用するので、xargs の規則は
+# どの実行ファイルを回しているのかまで見ないと他の対象を巻き込む。
+# sh -c の本体は xargs のコマンド行にそのまま入っており、pgrep -f の
+# `.` は改行にも当たるので、本体の `./cfrorg` まで届く。
+cfrorg	xargs[[:space:]].*-a[[:space:]]all_subgames\.txt.*[[:space:]]\./cfrorg[[:space:]]
 cfrorg	(^|[[:space:]])(\./|/[^[:space:]]*/)cfrorg([[:space:]]|$)
+brorg	(^|[[:space:]/])brorg\.sh([[:space:]]|$)
+brorg	(^|[[:space:]/])brorgupl\.sh([[:space:]]|$)
+brorg	xargs[[:space:]].*-a[[:space:]]all_subgames\.txt.*[[:space:]]\./brorg[[:space:]]
+# ./brorg 本体、/usr/bin/time のラッパ、xargs が起こす sh -c のすべてに当たる
+brorg	(^|[[:space:]])(\./|/[^[:space:]]*/)brorg([[:space:]]|$)
 win	(^|[[:space:]/])win\.sh([[:space:]]|$)
 win	(^|[[:space:]/])winupl\.sh([[:space:]]|$)
 win	(^|[[:space:]])(\./|/[^[:space:]]*/)win([[:space:]]|$)
