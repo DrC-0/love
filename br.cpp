@@ -306,19 +306,6 @@ void best_response(bool brp1, int t, int open[3]) {
   return;
 }
 
-// 開始時に公開する3枚が open になる確率。16枚から3枚を選ぶ C(16,3) = 560 通りの
-// うち、カードごとに C(max_num, その枚数) 通りを掛けたもの。cfr_zero.cpp が
-// utilities<部分ゲーム>.csv の先頭に書く値と同じだが、3枚の並び順に依存しない。
-double subgame_prob(const int open[3]) {
-  int cnt[8] = {0, 0, 0, 0, 0, 0, 0, 0};
-  for(int i = 0; i < 3; i++) cnt[open[i] - 1]++;
-  double ways = 1.0;
-  for(int c = 0; c < 8; c++) {
-    for(int k = 0; k < cnt[c]; k++) ways = ways * (max_num[c] - k) / (k + 1);
-  }
-  return ways / 560.0;
-}
-
 int main(int, char *argv[]) {
   int p, t, a, b, c;
   p = atoi(argv[1]);
@@ -340,8 +327,6 @@ int main(int, char *argv[]) {
   cout << "open : " << a << " " << b << " " << c << endl;
 
   int open[3] = {a, b, c};
-  printf("Subgame prob = %.10g\n", subgame_prob(open));
-  fflush(stdout);
   best_response(brp1, t, open);
 
   return 0;
