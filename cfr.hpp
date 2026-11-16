@@ -136,6 +136,8 @@ double draw(node &n) {
   string key = n.rnd_his_p[n.turn].get_hash_value();
   w.infset_it = table_infset.find(key);
   work_do_action w2 = w;
+  // σ^t のもとでの自己到達確率 π_i^{σ^t}(I)の更新
+  w.infset_it->second.set_pi_i(n.npi[n.turn][n.depth]);
   double p = w.infset_it->second.get_prob_action();
   c1 = n.hand1[0];
   c2 = n.hand1[1];
@@ -225,6 +227,8 @@ double play(node &n, int c) {
     work_do_action w0;
     string key = n.rnd_his_p[n.turn].get_hash_value();
     w0.infset_it = table_infset.find(key);
+    // σ^t のもとでの自己到達確率 π_i^{σ^t}(I)の更新
+    w0.infset_it->second.set_pi_i(n.npi[n.turn][n.depth]);
     double p = w0.infset_it->second.get_prob_action();
     double reward1 = 0.0;
     double reward2 = 0.0;
