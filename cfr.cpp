@@ -139,6 +139,10 @@ void cfr(int t0, int t, int open[3]) {
     }
 
     for(map<string, infset>::iterator it = table_infset.begin(); it != table_infset.end(); ++it) {
+      //順序が違うため更新
+      it->second.set_sum_i(0, it->second.get_sum_i(0) + it->second.get_pi_i() * it->second.get_prob_action());
+      it->second.set_sum_i(1, it->second.get_sum_i(1) + it->second.get_pi_i());
+      assert(it->second.get_sum_i(1) > 0);
       string action = rph.get_action((unsigned char)it->first[0]);
       int c2a = char_to_action(action[0]);
       if((c2a / 10 == 1) && (max(it->second.get_regret(0), 0.0) + max(it->second.get_regret(1), 0.0) > 0)) {
@@ -148,9 +152,6 @@ void cfr(int t0, int t, int open[3]) {
       } else {
         it->second.set_prob_action(0.5);
       }
-      it->second.set_sum_i(0, it->second.get_sum_i(0) + it->second.get_pi_i() * it->second.get_prob_action());
-      it->second.set_sum_i(1, it->second.get_sum_i(1) + it->second.get_pi_i());
-      assert(it->second.get_sum_i(1) > 0);
     }
     if(i < 10 || (i % 10 == 0 && i > 10 && i < 100) || (i % 100 == 0 && i > 100 && i < 1000) || (i % 1000 && i > 1000 && i < 10000)) {
       cout << "iteration : " << i << endl;
