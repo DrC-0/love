@@ -153,7 +153,7 @@ double ut_draw(node &n) {
 
 double ut_play(node &n, int c) {
   double reward;
-  double prob_win;
+  double prob_win = 0.0;
   switch(c) {
   case 1:
     if(n.open2 > 1 && n.barrier2 == false) {
@@ -168,6 +168,8 @@ double ut_play(node &n, int c) {
       // exist_card[1] = exist_card[1] / 2.0;
       // exist_card[7] = exist_card[7] * 8.0;
       double sum_exist_card = exist_card[1] + exist_card[2] + exist_card[3] + exist_card[4] + exist_card[5] + exist_card[6] + exist_card[7];
+      // cfr.hpp の play() と同じ一様ランダム宣言の的中確率
+      prob_win = exist_card[n.hand2 - 1] / sum_exist_card;
       /*姫があるなら姫を必ず宣言するよう変更
       prob_win = exist_card[n.hand2 - 1] / sum_exist_card;
       if(exist_card[7] > 0){
